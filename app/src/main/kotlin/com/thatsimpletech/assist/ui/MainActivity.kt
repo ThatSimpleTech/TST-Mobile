@@ -46,6 +46,12 @@ class MainActivity : Activity() {
         col.addView(button("Default assistant") { startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) })
         col.addView(button("Notification access") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) })
 
+        col.addView(TextView(this).apply {
+            text = "First smoke: Accessibility on → paste an OpenRouter key and Save → open WhatsApp → goal names WhatsApp → Run task. Approve type, then Send. Stop is on the task notification and the Quick Settings tile. Default assistant is optional (voice is not built)."
+            textSize = 14f
+            setPadding(0, (8 * dp).toInt(), 0, (12 * dp).toInt())
+        })
+
         val key = EditText(this).apply {
             hint = "Provider key (stored in Keystore, never shown again)"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
