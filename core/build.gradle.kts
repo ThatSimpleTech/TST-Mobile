@@ -19,6 +19,11 @@ kotlin {
     }
 }
 
+// The policy pack is data shared with any other enforcer (tstd, later). It lives at the
+// repo root in policy/ and rides in the core jar as /policy.yaml and /cases.yaml.
+sourceSets["main"].resources.srcDir(rootProject.file("policy"))
+sourceSets["main"].resources.include("*.yaml")
+
 dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)

@@ -31,6 +31,8 @@ data class UiNode(
     val role: Role,
     val bounds: Rect,
     val label: String = "",
+    /** The view's resource id name (e.g. com.whatsapp:id/send), when the app gave it one. */
+    val resourceId: String? = null,
     val clickable: Boolean = false,
     val longClickable: Boolean = false,
     val editable: Boolean = false,
