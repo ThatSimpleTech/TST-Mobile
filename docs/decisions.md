@@ -37,10 +37,12 @@ desktop schema (v1, v2) is replayed verbatim; the phone's tables are a v3 migrat
 
 ## TM-005 (2026-09-07) Framework APIs only in the app for now
 
-No androidx, no Compose. The overlay card, notifications, tile and settings screen use
-framework views. Reason: the sources can then be type-checked on a machine with no Android
-SDK (`tools/androidcheck` against Robolectric's framework jar), and the dependency surface
-a person has to audit stays small. Compose can come when the assistant surface grows.
+No androidx, no Compose in our own sources. The overlay card, notifications, tile and
+settings screen use framework views. Reason: the sources can then be type-checked on a
+machine with no Android SDK (`tools/androidcheck` against Robolectric's framework jar), and
+the dependency surface a person has to audit stays small. OkHttp's Android artifact brings
+androidx.annotation and androidx.startup transitively, so `android.useAndroidX=true` is set;
+that is the whole AndroidX footprint. Compose can come when the assistant surface grows.
 
 ## TM-006 (2026-09-07) Cleartext only to `*.ts.net`
 

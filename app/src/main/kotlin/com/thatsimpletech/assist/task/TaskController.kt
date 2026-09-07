@@ -6,15 +6,15 @@ import com.thatsimpletech.assist.a11y.NodeExecutor
 import com.thatsimpletech.assist.a11y.TreeObserver
 import com.thatsimpletech.assist.core.grammar.ActionParser
 import com.thatsimpletech.assist.core.loop.Outcome
-import com.thatsimpletech.assist.core.loop.Planner
-import com.thatsimpletech.assist.core.loop.RunListener
 import com.thatsimpletech.assist.core.loop.TaskRunner
 import com.thatsimpletech.assist.core.meter.CostTracker
 import com.thatsimpletech.assist.core.observe.ObservationBuilder
 import com.thatsimpletech.assist.core.policy.PolicyEnforcer
-import com.thatsimpletech.assist.core.steering.DefaultInstructions
+import com.thatsimpletech.assist.core.policy.PolicyPack
+import com.thatsimpletech.assist.core.policy.TextMatch
 import com.thatsimpletech.assist.kill.GlobalKillSwitch
 import com.thatsimpletech.assist.notif.AssistNotificationListener
+import java.util.UUID
 
 /**
  * Wires one task run: observer and executor from the accessibility service, the approval
@@ -22,22 +22,14 @@ import com.thatsimpletech.assist.notif.AssistNotificationListener
  * meter, and the audit listener. Anything missing is reported in words, never guessed.
  */
 object TaskController {
-    /** The planner for the configured mode, or null with a reason. Set by the app graph. */
-    @Volatile
-    var plannerFactory: (CostTracker) -> Planner? = { null }
-
-    /** Extra run listeners (audit, UI). */
-    @Volatile
-    var listeners: List<(CostTracker) -> RunListener> = emptyList()
-
     suspend fun run(goal: String, onMeter: (String) -> Unit): String {
         val service = AssistAccessibilityService.instance
             ?: return "stopped: the screen driver (accessibility service) is off"
         if (GlobalKillSwitch.killed) return "stopped: kill switch is set; re-arm it in the app"
 
         val meter = CostTracker()
-        val planner = plannerFactory(meter)
-            ?: return "stopped: no model configured (add a provider key, or a home daemon)"
+        val choice = Planners.forConfig(meter)
+        val planner = choice.planner ?: return "stopped: ${choice.reason}"
         meter.addListener { onMeter(meterChip(meter)) }
 
         val pack = Graph.pack
@@ -48,11 +40,14 @@ object TaskController {
             service = service, walker = walker, pack = pack,
             notifications = AssistNotificationListener.instance ?: AssistNotificationListener.unavailable,
         )
-        val listener = Fanout(listeners.map { it(meter) })
+        val sessionId = UUID.randomUUID().toString()
+        val audit = Graph.audit
+        audit.startSession(sessionId, Graph.deviceId, choice.mode, goal)
         val runner = TaskRunner(
             observer = observer, planner = planner, executor = executor, approvals = Graph.approvals,
             kill = GlobalKillSwitch, enforcer = enforcer, builder = ObservationBuilder(),
-            parser = ActionParser(), instructions = DefaultInstructions.load(), listener = listener,
+            parser = ActionParser(), instructions = Graph.instructions(),
+            listener = AuditListener(audit, sessionId, meter, Graph.clock),
         )
         onMeter(meterChip(meter))
         val goalApps = GoalApps.infer(goal, pack)
@@ -63,25 +58,9 @@ object TaskController {
         } + "  ·  " + meterChip(meter)
     }
 
-    /** The spend chip: session so far, this turn, by tier when there is more than one. */
-    fun meterChip(m: CostTracker): String {
-        val session = m.sessionCost()
-        val turn = m.turnCost()
-        return "\$%.4f session · \$%.4f turn · %d tokens".format(session, turn, m.sessionTokens())
-    }
-
-    private class Fanout(private val all: List<RunListener>) : RunListener {
-        override fun onStep(
-            step: Int, observation: com.thatsimpletech.assist.core.observe.Observation, reply: String,
-            parsed: com.thatsimpletech.assist.core.grammar.ParseResult,
-            decision: com.thatsimpletech.assist.core.policy.Decision?, result: com.thatsimpletech.assist.core.loop.ExecResult?,
-        ) = all.forEach { it.onStep(step, observation, reply, parsed, decision, result) }
-
-        override fun onApproval(kind: com.thatsimpletech.assist.core.loop.ApprovalKind, approved: Boolean) =
-            all.forEach { it.onApproval(kind, approved) }
-
-        override fun onEnd(outcome: Outcome) = all.forEach { it.onEnd(outcome) }
-    }
+    /** The spend chip (plan §5): session, this turn, tokens. */
+    fun meterChip(m: CostTracker): String =
+        "\$%.4f session · \$%.4f turn · %d tokens".format(m.sessionCost(), m.turnCost(), m.sessionTokens())
 }
 
 /**
@@ -90,10 +69,9 @@ object TaskController {
  * whole allowlist, so the lock still holds at the allowlist boundary.
  */
 object GoalApps {
-    fun infer(goal: String, pack: com.thatsimpletech.assist.core.policy.PolicyPack): Set<String> {
-        val folded = com.thatsimpletech.assist.core.policy.TextMatch.fold(goal)
+    fun infer(goal: String, pack: PolicyPack): Set<String> {
         val named = pack.apps.filter { app ->
-            (listOf(app.label) + app.aliases).any { com.thatsimpletech.assist.core.policy.TextMatch.containsWord(folded, it) }
+            (listOf(app.label) + app.aliases).any { TextMatch.containsWord(goal, it) }
         }.mapTo(LinkedHashSet()) { it.pkg }
         return if (named.isEmpty()) pack.packages else named
     }
