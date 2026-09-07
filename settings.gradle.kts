@@ -28,7 +28,11 @@ val sdkDir: String? = present(System.getenv("ANDROID_HOME"))
     ?: file("local.properties").takeIf { it.exists() }?.let { lp ->
         present(java.util.Properties().apply { lp.inputStream().use { load(it) } }.getProperty("sdk.dir"))
     }
-if (sdkDir != null && file(sdkDir).isDirectory) {
+val androidSdkPresent = sdkDir != null && file(sdkDir).isDirectory
+// The root build reads this to decide whether to put the Android Gradle Plugin on the
+// root classpath (it must share a classloader with the Kotlin plugins).
+gradle.extra.set("tstAndroidSdkPresent", androidSdkPresent)
+if (androidSdkPresent) {
     include(":app")
 } else {
     logger.lifecycle("tst-mobile: no Android SDK found (ANDROID_HOME / local.properties); :app is skipped, :core only.")
