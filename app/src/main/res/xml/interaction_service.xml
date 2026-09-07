@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="com.thatsimpletech.assist.assistant.AssistSessionService"
+    android:recognitionService="com.thatsimpletech.assist.assistant.AssistRecognitionService"
+    android:settingsActivity="com.thatsimpletech.assist.ui.MainActivity"
+    android:supportsAssist="true"
+    android:supportsLaunchFromKeyguard="true"
+    android:supportsLocalInteraction="true" />

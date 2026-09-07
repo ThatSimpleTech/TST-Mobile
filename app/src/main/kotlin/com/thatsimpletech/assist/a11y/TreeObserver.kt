@@ -1,0 +1,54 @@
+package com.thatsimpletech.assist.a11y
+
+import android.app.KeyguardManager
+import android.content.Context
+import android.view.WindowManager
+import com.thatsimpletech.assist.core.loop.Observer
+import com.thatsimpletech.assist.core.observe.Fingerprint
+import com.thatsimpletech.assist.core.observe.NodeFilter
+import com.thatsimpletech.assist.core.observe.Rect
+import com.thatsimpletech.assist.core.observe.Screen
+import com.thatsimpletech.assist.core.observe.WindowKind
+
+/**
+ * The core [Observer] backed by the accessibility tree. Secure screens show up as a window
+ * with no readable root: we report that and stop (P8), we never try to get around it.
+ */
+class TreeObserver(
+    private val context: Context,
+    private val walker: TreeWalker,
+    private val activityName: () -> String,
+) : Observer {
+
+    override fun observe(): Screen {
+        val walk = walker.walk()
+        val app = walk.activePackage
+        val appWindows = walk.windows.filter { it.kind == WindowKind.APP }
+        val readable = walk.nodes.any { n -> appWindows.any { it.id == n.window } }
+        val secure = appWindows.isNotEmpty() && !readable
+        return Screen(
+            app = app,
+            activity = activityName(),
+            display = display(),
+            nodes = walk.nodes.filter { it.window in walk.windows.filter { w -> w.kind != WindowKind.OVERLAY }.map { w -> w.id } },
+            windows = walk.windows.filter { it.kind != WindowKind.OVERLAY },
+            keyguard = keyguard(),
+            secure = secure,
+        )
+    }
+
+    override fun fingerprint(): String {
+        val walk = walker.walk()
+        val screen = Screen(walk.activePackage, activityName(), display(), walk.nodes, walk.windows)
+        return Fingerprint.of(screen.app, screen.activity, NodeFilter.select(screen).map { it.identity })
+    }
+
+    private fun keyguard(): Boolean =
+        (context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager)?.isKeyguardLocked == true
+
+    private fun display(): Rect {
+        val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val b = wm.currentWindowMetrics.bounds
+        return Rect(b.left, b.top, b.right, b.bottom)
+    }
+}

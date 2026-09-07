@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cleartext is refused everywhere except the tailnet: tstd serves plain ws:// and Tailscale is
+     the transport security (TST Desk remote-connect.ts). Home mode therefore uses the box's
+     MagicDNS name (*.ts.net), never a bare IP. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">ts.net</domain>
+    </domain-config>
+</network-security-config>
