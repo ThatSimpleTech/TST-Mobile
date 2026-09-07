@@ -1,0 +1,30 @@
+# Every version is pinned. Bump on purpose, never by accident.
+[versions]
+kotlin = "2.4.20"
+agp = "8.13.0"
+coroutines = "1.11.0"
+serialization = "1.11.0"
+kaml = "0.104.0"
+okhttp = "5.5.0"
+sqliteJdbc = "3.53.4.0"
+# Robolectric's framework jar for API 36 (Android 16). Used only by tools/androidcheck to
+# type-check the app sources on machines that have no Android SDK.
+androidAll = "16-robolectric-13921718"
+compileSdk = "36"
+minSdk = "35"
+targetSdk = "35"
+
+[libraries]
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+kaml = { module = "com.charleskorn.kaml:kaml", version.ref = "kaml" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "okhttp" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqliteJdbc" }
+android-all = { module = "org.robolectric:android-all", version.ref = "androidAll" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+android-application = { id = "com.android.application", version.ref = "agp" }

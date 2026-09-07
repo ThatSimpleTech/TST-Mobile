@@ -1,0 +1,71 @@
+name: CI
+
+# Two cheap ubuntu jobs. Docs-only changes do not trigger a build (same reasoning as
+# TST Desk: Actions minutes are a budget, not a free resource).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "core/**"
+      - "app/**"
+      - "policy/**"
+      - "tools/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradlew"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "core/**"
+      - "app/**"
+      - "policy/**"
+      - "tools/**"
+      - "gradle/**"
+      - "*.gradle.kts"
+      - "gradlew"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: core (JVM tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Core tests
+        run: ./gradlew :core:test --no-daemon
+        env:
+          # Force the SDK-less path even on runners that ship an SDK, so this job
+          # proves the core stands alone.
+          ANDROID_HOME: ""
+          ANDROID_SDK_ROOT: ""
+
+  app:
+    name: app (assembleDebug)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tst-assist-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
