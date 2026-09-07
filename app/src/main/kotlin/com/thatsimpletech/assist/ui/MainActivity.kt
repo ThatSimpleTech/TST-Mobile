@@ -107,7 +107,7 @@ class MainActivity : Activity() {
             append(if (a11y) "✓ screen driver on\n" else "✗ screen driver off (no-accessibility mode: answers, notifications, intents)\n")
             append(if (assistant) "✓ default assistant\n" else "✗ not the default assistant\n")
             append(if (notif) "✓ notification access\n" else "✗ notification access off\n")
-            append(if (hasKey) "✓ provider key in Keystore\n" else "✗ no provider key (Device mode only)\n")
+            append(if (hasKey) "✓ provider key in Keystore\n" else "✗ no provider key (cloud/home calls will refuse)\n")
             append(if (GlobalKillSwitch.killed) "■ STOPPED by kill switch\n" else "● armed\n")
         }
     }

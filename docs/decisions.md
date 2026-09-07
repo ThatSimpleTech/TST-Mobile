@@ -69,3 +69,31 @@ tstd only denies an approval on timeout when the workspace policy sets
 `approval_timeout_seconds`; by default it waits forever. The phone's approval surface owns
 its own timer (`approval_timeout_seconds` in the policy pack, 45 s) and answers deny itself,
 in every mode. In Home mode that means the phone sends an explicit deny to tstd.
+
+## TM-010 (2026-09-07) Cloud-key shipped first; Home-as-tstd is a client, not a planner
+
+The plan's build order is Home, then Cloud-key, then Device. This repo shipped Cloud-key
+(`CloudPlanner` + `ProviderClient`) because it does not need a daemon, and it reused that
+planner for any OpenAI-compatible `base_url`, including the `home` and `vllm` presets.
+`TstdClient` is a fixture-faithful WebSocket client and is not wired into `TaskController`.
+A settings toggle that says "Home" and then posts `/chat/completions` at the box is the
+vLLM path, not tstd. Do not blur them. Device mode stays an honest refusal (already in
+`Planners`).
+
+## TM-011 (2026-09-07) Drag hold is the path start, not the screen origin
+
+`NodeExecutor`'s `holdFirst` stroke constructed an empty `RectF` and `moveTo`'d its (0, 0)
+before `computeBounds` ran. `drag` would long-press the origin. The hold point is the
+`PathMeasure` position at offset 0 of the drag path.
+
+## TM-012 (2026-09-07) Paste fallback must not leave the typed text on the clipboard
+
+The `ACTION_SET_TEXT` fallback put the model's `type` string on the primary clip and left
+it there. A later paste in another app would replay it. After a successful paste the clip
+is cleared. The Android 13 clipboard toasts for a moment; the durable leak does not.
+
+## TM-013 (2026-09-07) Status copy must not claim a planner that is not built
+
+The settings screen said "no provider key (Device mode only)". Device mode is a preset and
+a refusal. The line now says cloud/home calls will refuse. The same rule applies to any
+future Home-as-tstd toggle.

@@ -88,7 +88,11 @@ class NodeExecutor(
         // Clipboard paste fallback: put the text on the clipboard, then ACTION_PASTE.
         val cm = service.getSystemService(android.content.ClipboardManager::class.java)
         cm?.setPrimaryClip(android.content.ClipData.newPlainText("tst-assist", text))
-        return if (n.performAction(AccessibilityNodeInfo.ACTION_PASTE)) ExecResult.OK else ExecResult.error("field refused text")
+        return if (n.performAction(AccessibilityNodeInfo.ACTION_PASTE)) {
+            // TM-012: do not leave the model's text sitting on the clipboard.
+            runCatching { cm?.clearPrimaryClip() }
+            ExecResult.OK
+        } else ExecResult.error("field refused text")
     }
 
     private suspend fun scroll(n: AccessibilityNodeInfo, dir: Direction, bounds: Rect): ExecResult {
@@ -172,9 +176,11 @@ class NodeExecutor(
     private suspend fun gesture(path: Path, start: Long, duration: Long, willContinue: Boolean = false, holdFirst: Boolean = false): ExecResult {
         val builder = GestureDescription.Builder()
         if (holdFirst) {
-            // A long-press before moving so drag handles pick it up.
-            val p = Path().apply { path.computeBounds(android.graphics.RectF().also { r -> moveTo(r.left, r.top) }, true) }
-            builder.addStroke(GestureDescription.StrokeDescription(p, 0, 400, true))
+            // Long-press at the path start so drag handles pick it up (TM-011).
+            val pos = FloatArray(2)
+            android.graphics.PathMeasure(path, false).getPosTan(0f, pos, null)
+            val hold = Path().apply { moveTo(pos[0], pos[1]) }
+            builder.addStroke(GestureDescription.StrokeDescription(hold, 0, 400, true))
             builder.addStroke(GestureDescription.StrokeDescription(path, 400, duration, willContinue))
         } else {
             builder.addStroke(GestureDescription.StrokeDescription(path, start, duration, willContinue))
