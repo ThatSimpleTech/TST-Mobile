@@ -75,7 +75,7 @@ sealed class Action(val verb: Verb) {
     data class Type(val hint: Int, val text: String) : Action(Verb.TYPE) {
         override val hints get() = listOf(hint)
         override fun render() = "type $hint ${Quote.q(text)}"
-        override fun plainWords() = "Type into item $hint"
+        override fun plainWords() = "Type into item $hint: ${Quote.q(text.take(80))}"
     }
 
     data class Clear(val hint: Int) : Action(Verb.CLEAR) {
@@ -136,7 +136,7 @@ sealed class Action(val verb: Verb) {
 
     data class NotifReply(val id: String, val text: String) : Action(Verb.NOTIF) {
         override fun render() = "notif reply $id ${Quote.q(text)}"
-        override fun plainWords() = "Reply to notification $id"
+        override fun plainWords() = "Reply to notification $id: ${Quote.q(text.take(80))}"
     }
 
     data class NotifOpen(val id: String) : Action(Verb.NOTIF) {
@@ -146,7 +146,7 @@ sealed class Action(val verb: Verb) {
 
     data class ScreenAsk(val question: String) : Action(Verb.SCREEN) {
         override fun render() = "screen ask ${Quote.q(question)}"
-        override fun plainWords() = "Send a screenshot to the vision model"
+        override fun plainWords() = "Ask the vision model: ${Quote.q(question.take(80))}"
     }
 
     /** Seconds are clamped to [MAX_WAIT_SECONDS] at parse time. */

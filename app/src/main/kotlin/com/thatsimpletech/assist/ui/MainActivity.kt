@@ -13,6 +13,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.view.View
 import com.thatsimpletech.assist.Graph
 import com.thatsimpletech.assist.a11y.AssistAccessibilityService
 import com.thatsimpletech.assist.core.policy.Conformance
@@ -48,6 +49,7 @@ class MainActivity : Activity() {
         val key = EditText(this).apply {
             hint = "Provider key (stored in Keystore, never shown again)"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
         }
         col.addView(key)
         col.addView(button("Save key") {

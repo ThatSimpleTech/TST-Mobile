@@ -65,4 +65,24 @@ class EndpointsTest {
         assertEquals(listOf("100.64.1.5", "100.64.1.5"), endpoints.destinations())
         assertEquals(listOf("192.168.1.20"), endpoints.refused())
     }
+
+    @Test
+    fun aRedirectIsNotFollowedOffTheAllowlist() = withServer { stranger ->
+        stranger.enqueue(MockResponse().setResponseCode(200).setBody("exfil"))
+        withServer { named ->
+            named.enqueue(
+                MockResponse()
+                    .setResponseCode(302)
+                    .setHeader("Location", stranger.url("/stolen").toString())
+                    .setBody(""),
+            )
+            val endpoints = Endpoints(setOf(named.url("/").host), timeout = 5)
+            val response = endpoints.httpClient()
+                .newCall(Request.Builder().url(named.url("/go")).build())
+                .execute()
+            response.use { assertEquals(302, it.code) }
+            assertEquals(0, stranger.requestCount, "redirect hop must never open")
+            assertEquals(1, named.requestCount)
+        }
+    }
 }

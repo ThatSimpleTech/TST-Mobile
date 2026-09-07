@@ -96,7 +96,7 @@ class TreeWalker(private val service: AccessibilityService) {
             identity = identityOf(node, pkg, window, path),
             role = roleOf(cls, node),
             bounds = b.core(),
-            label = if (node.isPassword) (node.contentDescription?.toString() ?: node.hintText?.toString() ?: "Password") else labelOf(node),
+            label = if (node.isPassword) "Password" else labelOf(node),
             resourceId = node.viewIdResourceName,
             clickable = node.isClickable,
             longClickable = node.isLongClickable,

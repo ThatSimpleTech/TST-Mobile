@@ -80,6 +80,14 @@ class ActionParserTest {
     }
 
     @Test
+    fun plainWordsIncludesPayloads() {
+        assertEquals("Type into item 3: \"hi\"", Action.Type(3, "hi").plainWords())
+        assertEquals("Reply to notification n2: \"On my way\"", Action.NotifReply("n2", "On my way").plainWords())
+        assertEquals("Ask the vision model: \"what is the total?\"", Action.ScreenAsk("what is the total?").plainWords())
+        assertEquals("Tap item 4", Action.Tap(4).plainWords())
+    }
+
+    @Test
     fun doneAndAskAcceptPlainWords() {
         assertEquals(Action.Done("Sent the message"), ok("done Sent the message"))
         assertEquals(Action.Ask("Which contact?"), ok("ask \"Which contact?\""))

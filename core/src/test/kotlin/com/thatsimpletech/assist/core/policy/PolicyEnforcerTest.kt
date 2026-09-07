@@ -45,14 +45,35 @@ class PolicyEnforcerTest {
     }
 
     @Test
+    fun sendInAnotherAppIsSensitiveNotAnAdmitCard() {
+        val d = enforcer.decide(Action.Tap(1), "com.google.android.gm", btn("Send"), false, false, wa)
+        assertEquals("sensitive-control", d.rule)
+        assertEquals(Tier.EVERY_TIME, d.tier)
+    }
+
+    @Test
+    fun longPressOnAPasswordFieldIsRefused() {
+        val field = UiNode("pw", Role.EDIT, Rect(0, 0, 1, 1), label = "Password", password = true, editable = true)
+        val d = enforcer.decide(Action.Long(1), "com.whatsapp", field, false, false, wa)
+        assertEquals("password-field", d.rule)
+        assertEquals(Gate.REFUSE, d.gate)
+    }
+
+    @Test
+    fun archiveByLabelIsSensitive() {
+        val d = enforcer.decide(Action.Tap(1), "com.google.android.gm", btn("Archive"), false, false, TaskContext(goalApps = setOf("com.google.android.gm")))
+        assertEquals("sensitive-control", d.rule)
+    }
+
+    @Test
     fun confirmedAppsJoinTheGoalSet() {
         val outside = enforcer.decide(Action.Scroll(1, Direction.DOWN), "com.google.android.gm", null, false, false, wa)
         assertEquals("outside-goal-apps", outside.rule)
         val wayOut = enforcer.decide(Action.Home, "com.google.android.gm", null, false, false, wa)
         assertEquals(Gate.PROCEED, wayOut.gate)
-        val tap = enforcer.decide(Action.Tap(1), "com.google.android.gm", btn("Archive"), false, false, wa)
+        val tap = enforcer.decide(Action.Tap(1), "com.google.android.gm", btn("Inbox"), false, false, wa)
         assertEquals("outside-goal-apps", tap.rule)
-        val confirmed = enforcer.decide(Action.Tap(1), "com.google.android.gm", btn("Archive"), false, false, wa.copy(confirmedApps = setOf("com.google.android.gm"), taskGranted = true))
+        val confirmed = enforcer.decide(Action.Tap(1), "com.google.android.gm", btn("Inbox"), false, false, wa.copy(confirmedApps = setOf("com.google.android.gm"), taskGranted = true))
         assertEquals("in-app-control", confirmed.rule)
         assertEquals(Gate.PROCEED, confirmed.gate)
     }

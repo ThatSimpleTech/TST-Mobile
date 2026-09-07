@@ -30,11 +30,13 @@ class Endpoints(allowedHosts: Set<String>, private val timeout: Long = 60, priva
 
     fun isAllowed(host: String): Boolean = host.lowercase() in allowed
 
-    /** A client for plain requests. The gate runs as the first application interceptor. */
+    /** A client for plain requests. Redirects are not followed: a 302 to a stranger must not open a socket. */
     fun httpClient(): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(timeout, unit)
         .readTimeout(timeout, unit)
         .writeTimeout(timeout, unit)
+        .followRedirects(false)
+        .followSslRedirects(false)
         .addInterceptor(gate)
         .build()
 
@@ -56,6 +58,8 @@ class Endpoints(allowedHosts: Set<String>, private val timeout: Long = 60, priva
             .connectTimeout(timeout, unit)
             .readTimeout(0, TimeUnit.MILLISECONDS)
             .pingInterval(30, TimeUnit.SECONDS)
+            .followRedirects(false)
+            .followSslRedirects(false)
             .addInterceptor(gate)
             .build()
     }

@@ -98,6 +98,7 @@ class TaskRunner(
                 parseNote?.let { append("   LAST: error ").append(ObservationFormatter.clean(it, 120)) }
             }
             val reply = planner.next(prompt)
+            if (kill.killed) return end(Outcome.Stopped(KILLED))
             val parsed = parser.parse(reply, obs.hints)
 
             if (parsed is ParseResult.Error) {
@@ -113,7 +114,7 @@ class TaskRunner(
             tier2Pending = null
             val action = (parsed as ParseResult.Ok).action
 
-            if (loops.record(action.render())) {
+            if (action !is Action.More && action !is Action.Wait && loops.record(action.render())) {
                 listener?.onStep(step, obs, reply, parsed, null, null)
                 return end(Outcome.Stopped("looping: `${action.render()}` repeated ${loops.streak} times"))
             }

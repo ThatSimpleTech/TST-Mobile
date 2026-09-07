@@ -199,6 +199,7 @@ class TaskRunnerTest {
         assertEquals(Outcome.Stopped("killed"), run(rig))
         assertTrue(rig.executor.calls.isEmpty())
         assertEquals(1, rig.prompts.size)
+        assertTrue(rig.listener.steps.isEmpty(), "killed during planner.next must not parse or step")
         assertEquals(listOf<Outcome>(Outcome.Stopped("killed")), rig.listener.ends)
     }
 
@@ -306,6 +307,38 @@ class TaskRunnerTest {
         assertTrue(rig.prompts[1].endsWith("STEP 2 of 12   LAST: more -> ok"), rig.prompts[1])
         assertTrue(rig.prompts[2].contains(" page=3/3\n"), rig.prompts[2])
         assertTrue(rig.prompts[2].lines().any { it.startsWith("[121] btn \"Chat 121\"") }, rig.prompts[2])
+    }
+
+    @Test
+    fun moreDoesNotTripTheLoopDetector() {
+        // loop_repeat_limit is 3. Paging a long list with `more` is not a stuck model.
+        val rig = Rig(replies = listOf("more", "more", "more", "more", "done \"x\""), screens = listOf(Screens.big()))
+        assertEquals(Outcome.Done("x"), run(rig))
+        assertTrue(rig.executor.calls.isEmpty())
+        assertEquals(1, rig.observer.observeCalls)
+        assertEquals(5, rig.prompts.size)
+        assertTrue(rig.prompts[3].contains(" page=1/3\n"), rig.prompts[3])
+    }
+
+    @Test
+    fun waitDoesNotTripTheLoopDetector() {
+        val rig = Rig(replies = listOf("wait 2", "wait 2", "wait 2", "wait 2", "done \"x\""), screens = listOf(Screens.whatsapp()))
+        assertEquals(Outcome.Done("x"), run(rig))
+        assertEquals(List(4) { Action.Wait(2) }, rig.executor.actions)
+    }
+
+    @Test
+    fun notifReplyCardShowsThePayload() {
+        val rig = Rig(
+            replies = listOf("notif reply n2 \"On my way\"", "done \"x\""),
+            screens = listOf(Screens.whatsapp()),
+            approvals = ScriptedApprovals(cards = listOf(true)),
+        )
+        assertEquals(Outcome.Done("x"), run(rig))
+        val card = rig.approvals.cards.single()
+        assertEquals(Action.NotifReply("n2", "On my way"), card.action)
+        assertEquals("Reply to notification n2: \"On my way\"", card.plainWords)
+        assertEquals(listOf<Action>(Action.NotifReply("n2", "On my way")), rig.executor.actions)
     }
 
     // ---- the intent lock ----

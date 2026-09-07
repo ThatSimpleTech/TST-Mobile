@@ -25,6 +25,9 @@ cases:
   - name: clearing a password field is refused
     request: { verb: clear, app: com.whatsapp, goal_apps: [com.whatsapp], target: { role: edit, label: Password, password: true } }
     expect: { tier: refused, rule: password-field }
+  - name: long-press on a password field is refused
+    request: { verb: long, app: com.whatsapp, goal_apps: [com.whatsapp], target: { role: edit, label: Password, password: true } }
+    expect: { tier: refused, rule: password-field }
   - name: scroll is silent
     request: { verb: scroll, app: com.whatsapp, goal_apps: [com.whatsapp], target: { role: list, label: "" } }
     expect: { tier: silent, rule: read-only }
@@ -65,8 +68,14 @@ cases:
     request: { verb: tap, app: com.bank.app, goal_apps: [com.bank.app], target: { role: btn, label: Ok } }
     expect: { tier: refused, rule: app-not-allowlisted }
   - name: acting outside the goal app set asks every time
-    request: { verb: tap, app: com.google.android.gm, goal_apps: [com.whatsapp], target: { role: btn, label: Archive } }
+    request: { verb: tap, app: com.google.android.gm, goal_apps: [com.whatsapp], target: { role: btn, label: Inbox } }
     expect: { tier: every, rule: outside-goal-apps }
+  - name: Send in another app is still Send, not an admit-this-app card
+    request: { verb: tap, app: com.google.android.gm, goal_apps: [com.whatsapp], target: { role: btn, label: Send } }
+    expect: { tier: every, rule: sensitive-control }
+  - name: Archive by label is sensitive
+    request: { verb: tap, app: com.google.android.gm, goal_apps: [com.google.android.gm], target: { role: btn, label: Archive } }
+    expect: { tier: every, rule: sensitive-control }
   - name: notification reply is every time
     request: { verb: notif_reply, app: com.whatsapp, goal_apps: [com.whatsapp] }
     expect: { tier: every, rule: notif-reply }

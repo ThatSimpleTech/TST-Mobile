@@ -65,14 +65,15 @@ object TaskController {
 
 /**
  * The goal's app set (the intent lock, plan §4). Until a task-planning step exists, the set
- * is every allowlisted app the goal names by label or alias; a goal that names none gets the
- * whole allowlist, so the lock still holds at the allowlist boundary.
+ * is every allowlisted app the goal names by label or alias. A goal that names none gets
+ * an empty set: every app-scoped action is outside the lock and needs a card (TM-014).
+ * A planner that emits the app set is M2.
  */
 object GoalApps {
     fun infer(goal: String, pack: PolicyPack): Set<String> {
         val named = pack.apps.filter { app ->
             (listOf(app.label) + app.aliases).any { TextMatch.containsWord(goal, it) }
         }.mapTo(LinkedHashSet()) { it.pkg }
-        return if (named.isEmpty()) pack.packages else named
+        return if (named.isEmpty()) emptySet() else named
     }
 }

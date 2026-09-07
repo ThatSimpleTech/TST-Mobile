@@ -7,6 +7,7 @@ import android.os.IBinder
 import com.thatsimpletech.assist.Graph
 import com.thatsimpletech.assist.approval.ApprovalNotifier
 import com.thatsimpletech.assist.kill.GlobalKillSwitch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,6 +47,8 @@ class TaskForegroundService : Service() {
         job = scope.launch {
             val outcome = try {
                 TaskController.run(goal) { meter -> Graph.notifier.updateTask(goal, meter) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 "stopped: ${e.message ?: "error"}"
             }

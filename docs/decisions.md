@@ -97,3 +97,17 @@ is cleared. The Android 13 clipboard toasts for a moment; the durable leak does 
 The settings screen said "no provider key (Device mode only)". Device mode is a preset and
 a refusal. The line now says cloud/home calls will refuse. The same rule applies to any
 future Home-as-tstd toggle.
+
+## TM-014 (2026-09-07) Remaining M1 review closeout
+
+A second pass after TM-010–013. None of these loosen a promise; they close holes the first pass named or missed.
+
+- **Empty goal-apps.** `GoalApps.infer` returning the whole allowlist for "reply to Maria" made the intent lock a no-op at the allowlist boundary. An unnamed goal now gets an empty set: the first app-scoped action is a card, and confirming admits that app. A planner that emits the set is M2.
+- **Sensitive before outside-goal.** First-match used to treat Send in Gmail during a WhatsApp task as "admit this app", not as Send. `sensitive-control` and `settings-change` now sit above `outside-goal-apps`. `archive`/`archivar` join the sensitive labels.
+- **Password is an act, not a pair of verbs.** The rule is `target_password + acts`. The walker never copies `contentDescription` into the label (always `"Password"`). IME and overlay windows are not observed.
+- **Cards show the payload.** `type`, `notif reply` and `screen ask` put the text on the card. A person approving a reply must see what will be sent.
+- **`more`/`wait` are not loops.** `loop_repeat_limit: 3` would stop a 150-row list on the third `more`. Paging and waiting are skipped. Identical `tap`/`scroll` still stop.
+- **Kill after think.** The switch is polled immediately after `planner.next`, not only after the approval wait. `CancellationException` is rethrown from the foreground service.
+- **No redirect hop.** `Endpoints` sets `followRedirects(false)` / `followSslRedirects(false)`, so a 302 to a stranger never opens a socket. A network interceptor cannot refuse before `ConnectInterceptor` has already connected; not following is the actual door.
+- **Autofill off on the key field.** The Keystore EditText is `IMPORTANT_FOR_AUTOFILL_NO`.
+

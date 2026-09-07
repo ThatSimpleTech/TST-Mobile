@@ -95,6 +95,8 @@ sensitive_labels:
   - confirmar
   - transfer
   - transferir
+  - archive
+  - archivar
   - unsubscribe
   - block
   - bloquear
@@ -112,9 +114,9 @@ rules:
     tier: refused
     reason: this screen hides itself from assistants; hand it back to the person
   - id: password-field
-    when: { verb: [type, clear], target_password: true }
+    when: { target_password: true, acts: true }
     tier: refused
-    reason: password fields are never typed into
+    reason: password fields are never typed into or acted on
   - id: open-not-allowlisted
     when: { verb: [open], open_allowlisted: false }
     tier: refused
@@ -125,10 +127,7 @@ rules:
     reason: this app is not on the allowlist
 
   # ---- every time ----
-  - id: outside-goal-apps
-    when: { app_in_goal: false, app_scoped: true }
-    tier: every
-    reason: this app is outside what the task started with
+  # Sensitive / settings first: an outside-goal Send is still Send, not "open this app".
   - id: notif-reply
     when: { verb: [notif_reply] }
     tier: every
@@ -138,9 +137,13 @@ rules:
     tier: every
     reason: changing a setting
   - id: sensitive-control
-    when: { verb: [tap, long], target_sensitive: true }
+    when: { verb: [tap, long, drag, swipe], target_sensitive: true }
     tier: every
     reason: this control sends, calls, pays, deletes, installs or shares
+  - id: outside-goal-apps
+    when: { app_in_goal: false, app_scoped: true }
+    tier: every
+    reason: this app is outside what the task started with
 
   # ---- silent ----
   - id: read-only

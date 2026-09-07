@@ -62,7 +62,7 @@ Default preset is `tst-default` (OpenRouter, Kimi K3). That is Cloud-key, not Ho
 | Refused: password, secure, un-allowlisted, rules, shell | `password-field`, `secure-screen`, `keyguard-locked`, `app-not-allowlisted` | **held**. There is no shell verb in the grammar. |
 | One Tier 2 per turn | `max_tier2_per_turn: 1` and `Gate.TURN_LIMIT` | **vacuous in the runner**. `TaskRunner` resets `tier2ThisTurn` on every new observation, and the grammar is one action per observation. The gate cannot fire. Harmless given one-action-per-turn. |
 | Timeout is deny | 45 s in the pack; surface uses it | **held** in code (TM-009). tstd default (wait forever) is not used on the phone. |
-| Intent lock | `goalApps` + `outside-goal-apps` → card; confirm admits the app | **held**. `GoalApps.infer` is a word match against allowlist labels; a goal that names no app gets the *whole* allowlist. That is weaker than a real planner's app set. |
+| Intent lock | `goalApps` + `outside-goal-apps` → card; confirm admits the app | **held**. `GoalApps.infer` is a word match against allowlist labels; a goal that names no app gets an empty set, so the first action in any app is a card (TM-014). A planner that emits the app set is M2. |
 
 Conformance: `policy/cases.yaml` is loaded and every rule has a case (`PolicyConformanceTest`).
 
@@ -99,7 +99,7 @@ This is a **client model**. It is not Home mode. Nothing in `TaskController` sen
 | Merge / un-draft PR #1 | Not done. This work is on `grok/m1-closeout`, not the Claude branch. |
 | Run on a phone | Not done. No Android SDK in this environment; `:app:assembleDebug` is CI-only. |
 
-Core tests re-run here: **254 / 254 pass** (`./gradlew :core:test`, JDK 17, no SDK).
+Core tests re-run here: **262 / 262 pass** (`./gradlew :core:test`, JDK 17, no SDK).
 
 ---
 
@@ -128,13 +128,15 @@ If desktop tstd has moved since these were pasted, the phone is a snapshot, not 
 
 3. **Settings copy claimed Device mode.** "no provider key (Device mode only)" — Device mode is not built. Copy now says cloud/home calls will refuse. (TM-013)
 
+4. **TM-014 closeout.** Empty goal-apps; sensitive before outside-goal; password is any act; IME/overlay dropped; cards show payloads; `more`/`wait` skip the loop detector; kill after `planner.next`; no redirect hop; autofill off on the key field. Details in `docs/decisions.md`.
+
 ### Open, not silently "fine"
 
 4. **`TstdClient` is orphaned.** Home-as-tstd is a protocol toy. Do not ship a toggle that says "Home" and then talks OpenAI-compat to `home.tailnet.example` as if that were tstd.
 
 5. **No-telemetry scan does not cover `app/`.** An Android `HttpURLConnection` in a future file would not fail CI. Extend the scan or keep app code free of clients.
 
-6. **`GoalApps.infer` is a bag of words.** "reply to Maria" with no app name unlocks every allowlisted package for the intent lock. A planner that emits the app set is M2.
+6. **`GoalApps.infer` is a bag of words.** A goal that names no app now gets an empty set (TM-014), so every app-scoped action is a card until one is confirmed. Still weaker than a planner that emits the app set (M2).
 
 7. **Keystore wrapping key is unlocked to the process.** Matches "never plaintext on disk". Does not match a mental model of "unlock the phone to use the key" except when the OS invalidates the key. The `SecretStoreLockedException` path is mostly dead.
 

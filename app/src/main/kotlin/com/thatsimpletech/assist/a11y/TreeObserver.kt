@@ -26,12 +26,16 @@ class TreeObserver(
         val appWindows = walk.windows.filter { it.kind == WindowKind.APP }
         val readable = walk.nodes.any { n -> appWindows.any { it.id == n.window } }
         val secure = appWindows.isNotEmpty() && !readable
+        // IME and overlay windows are not the app: Gboard composing text would leak a password
+        // that the password-field rule never sees, because suggestion chips are not isPassword.
+        val visibleKinds = setOf(WindowKind.APP, WindowKind.SYSTEM, WindowKind.OTHER)
+        val visibleIds = walk.windows.filter { it.kind in visibleKinds }.map { it.id }.toSet()
         return Screen(
             app = app,
             activity = activityName(),
             display = display(),
-            nodes = walk.nodes.filter { it.window in walk.windows.filter { w -> w.kind != WindowKind.OVERLAY }.map { w -> w.id } },
-            windows = walk.windows.filter { it.kind != WindowKind.OVERLAY },
+            nodes = walk.nodes.filter { it.window in visibleIds },
+            windows = walk.windows.filter { it.kind in visibleKinds },
             keyguard = keyguard(),
             secure = secure,
         )
