@@ -4,5 +4,5 @@
     android:recognitionService="com.thatsimpletech.assist.assistant.AssistRecognitionService"
     android:settingsActivity="com.thatsimpletech.assist.ui.MainActivity"
     android:supportsAssist="true"
-    android:supportsLaunchFromKeyguard="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="true"
     android:supportsLocalInteraction="true" />
