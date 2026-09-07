@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import okhttp3.OkHttpClient
+import com.thatsimpletech.assist.core.net.Endpoints
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
@@ -78,7 +78,7 @@ class TstdClientTest {
             )
             server.enqueue(MockResponse().withWebSocketUpgrade(daemon("tok-1", frames)))
             server.start()
-            val client = TstdClient({ OkHttpClient() })
+            val client = TstdClient(Endpoints(setOf(server.hostName)))
             val (seen, collector) = subscribe(client)
             client.connect(wsUrl(server), "tok-1")
 
@@ -105,7 +105,7 @@ class TstdClientTest {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().withWebSocketUpgrade(daemon("tok-2", emptyList())))
             server.start()
-            val client = TstdClient({ OkHttpClient() })
+            val client = TstdClient(Endpoints(setOf(server.hostName)))
             val (seen, collector) = subscribe(client)
             assertFalse(client.send(ClientMessages.listSessions()), "nothing may be sent with no socket")
             client.connect(wsUrl(server), "tok-2")
@@ -127,7 +127,7 @@ class TstdClientTest {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().withWebSocketUpgrade(daemon("right", emptyList())))
             server.start()
-            val client = TstdClient({ OkHttpClient() })
+            val client = TstdClient(Endpoints(setOf(server.hostName)))
             val (seen, collector) = subscribe(client)
             client.connect(wsUrl(server), "wrong")
             val err = assertIs<TstdEvent.Error>(next(seen))

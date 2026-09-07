@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.json.JsonPrimitive
-import okhttp3.OkHttpClient
+import com.thatsimpletech.assist.core.net.Endpoints
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
@@ -20,11 +20,11 @@ enum class ConnectionState { DISCONNECTED, CONNECTING, CONNECTED, CLOSED, FAILED
  * backoff and the zombie check belong to the app's lifecycle owner, which knows about
  * Doze and foreground services and this package does not.
  *
- * The OkHttpClient comes from a factory so the app can hand in the one whose destinations
- * are pinned by the outbound-hosts test (plan §1 "no telemetry"); tests hand in a plain one.
+ * Every socket comes from core.net.Endpoints, the one place outbound connections are made,
+ * so the host is checked against config before the upgrade request exists (plan §1).
  */
 class TstdClient(
-    private val httpClientFactory: () -> OkHttpClient,
+    private val endpoints: Endpoints,
     val gate: EventGate = EventGate(),
     val sequence: SequenceTracker = SequenceTracker(),
 ) {
@@ -55,7 +55,7 @@ class TstdClient(
         check(socket == null) { "already connected" }
         val hello = ClientMessages.hello(token, version)
         stateFlow.value = ConnectionState.CONNECTING
-        socket = httpClientFactory().newWebSocket(Request.Builder().url(url).build(), Listener(hello))
+        socket = endpoints.webSocketClient(url).newWebSocket(Request.Builder().url(url).build(), Listener(hello))
     }
 
     /**
