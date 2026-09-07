@@ -21,10 +21,12 @@ include(":core")
 
 // :app needs the Android SDK. When there is none (a docs checkout, a box with no SDK),
 // the pure-JVM :core still builds and tests, and :app is simply not part of the build.
-val sdkDir: String? = System.getenv("ANDROID_HOME")
-    ?: System.getenv("ANDROID_SDK_ROOT")
+// A blank value counts as absent: CI sets ANDROID_HOME="" to force the SDK-less path.
+fun present(v: String?): String? = v?.takeIf { it.isNotBlank() }
+val sdkDir: String? = present(System.getenv("ANDROID_HOME"))
+    ?: present(System.getenv("ANDROID_SDK_ROOT"))
     ?: file("local.properties").takeIf { it.exists() }?.let { lp ->
-        java.util.Properties().apply { lp.inputStream().use { load(it) } }.getProperty("sdk.dir")
+        present(java.util.Properties().apply { lp.inputStream().use { load(it) } }.getProperty("sdk.dir"))
     }
 if (sdkDir != null && file(sdkDir).isDirectory) {
     include(":app")
