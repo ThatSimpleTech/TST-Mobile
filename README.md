@@ -9,9 +9,10 @@ The plan is [`docs/tst-assist-android.md`](docs/tst-assist-android.md). What the
 does today, checked against TST Desk's source, is [`docs/reality-check.md`](docs/reality-check.md).
 Decisions are in [`docs/decisions.md`](docs/decisions.md).
 
-**Status:** pre-alpha, private use. The pure-JVM core is built and tested (262 tests). The
-Android app is written against framework APIs and type-checked, and has not yet been run on a
-phone. Head of work is `grok/m1-closeout` (reality check + review closeout TM-010–014).
+**Status:** pre-alpha, private use. The pure-JVM core is built and tested (264 tests). The
+Android app is written against framework APIs and type-checked. Head of work is `grok/m1-closeout`
+(reality check + review closeout TM-010–015). The settings screen now names the model and the
+OpenAI-compatible endpoint (OpenRouter, LAN, or a custom server).
 
 ## How it drives the phone
 

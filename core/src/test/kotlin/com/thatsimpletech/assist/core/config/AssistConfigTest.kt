@@ -162,4 +162,35 @@ class AssistConfigTest {
         val implicit = AssistConfig.parse(oneTierConfig("https://openrouter.ai/api/v1"))
         assertEquals("openrouter", implicit.tier(TierName.BRAIN).credentialId)
     }
+
+    @Test
+    fun userEndpointRewiresEveryTierAndTheAllowlist() {
+        val cfg = AssistConfig.loadDefault().withUserEndpoint(
+            baseUrl = "http://192.168.1.10:11434/v1",
+            slug = "llama3.1",
+            credential = null,
+            template = "local",
+        )
+        assertEquals("user", cfg.preset)
+        assertEquals("llama3.1", cfg.tier(TierName.BRAIN).slug)
+        assertEquals("llama3.1", cfg.tier(TierName.WORKER).slug)
+        assertEquals("http://192.168.1.10:11434/v1", cfg.tier(TierName.BRAIN).baseUrl)
+        assertEquals(setOf("192.168.1.10"), cfg.allowedHosts)
+        assertEquals(EndpointKind.REMOTE, cfg.tier(TierName.BRAIN).kind)
+        assertEquals(0.0, cfg.tier(TierName.BRAIN).inputPrice)
+    }
+
+    @Test
+    fun userCloudEndpointKeepsOpenrouterHostAndPrices() {
+        val cfg = AssistConfig.loadDefault().withUserEndpoint(
+            baseUrl = "https://openrouter.ai/api/v1",
+            slug = "openai/gpt-4o-mini",
+            credential = "openrouter",
+            template = "tst-default",
+        )
+        assertEquals("openai/gpt-4o-mini", cfg.tier(TierName.BRAIN).slug)
+        assertEquals(setOf("openrouter.ai"), cfg.allowedHosts)
+        assertEquals("openrouter", cfg.tier(TierName.BRAIN).credentialId)
+        assertEquals(2.80, cfg.tier(TierName.BRAIN).inputPrice)
+    }
 }

@@ -16,6 +16,9 @@ import android.widget.TextView
 import android.view.View
 import com.thatsimpletech.assist.Graph
 import com.thatsimpletech.assist.a11y.AssistAccessibilityService
+import com.thatsimpletech.assist.config.ProviderSettings
+import com.thatsimpletech.assist.core.config.Endpoint
+import com.thatsimpletech.assist.core.config.TierName
 import com.thatsimpletech.assist.core.policy.Conformance
 import com.thatsimpletech.assist.core.policy.PolicyEnforcer
 import com.thatsimpletech.assist.core.secrets.SecretStore
@@ -25,12 +28,19 @@ import com.thatsimpletech.assist.notif.AssistNotificationListener
 import com.thatsimpletech.assist.task.TaskForegroundService
 
 /**
- * The whole settings surface for now: status of the three grants, the provider key (Keystore
- * only, never shown back), a goal box, the kill switch, and the policy self-check. Framework
- * views only; a nicer surface is later work.
+ * The whole settings surface for now: status of the three grants, the provider (OpenRouter,
+ * local/LAN, or a custom OpenAI-compatible server), a goal box, the kill switch, and the
+ * policy self-check. Framework views only; a nicer surface is later work.
  */
 class MainActivity : Activity() {
     private lateinit var status: TextView
+    private lateinit var model: EditText
+    private lateinit var url: EditText
+    private lateinit var key: EditText
+    private lateinit var cloudBtn: Button
+    private lateinit var localBtn: Button
+    private lateinit var customBtn: Button
+    private var mode: ProviderSettings.Mode = ProviderSettings.Mode.CLOUD
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,30 +57,45 @@ class MainActivity : Activity() {
         col.addView(button("Notification access") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) })
 
         col.addView(TextView(this).apply {
-            text = "First smoke: Accessibility on → paste an OpenRouter key and Save → open WhatsApp → goal names WhatsApp → Run task. Approve type, then Send. Stop is on the task notification and the Quick Settings tile. Default assistant is optional (voice is not built)."
+            text = "First smoke: Accessibility on → pick a provider and model → Save provider → open WhatsApp → goal names WhatsApp → Run task. Approve type, then Send. Stop is on the task notification and the Quick Settings tile. Default assistant is optional (voice is not built)."
             textSize = 14f
             setPadding(0, (8 * dp).toInt(), 0, (12 * dp).toInt())
         })
 
-        val key = EditText(this).apply {
-            hint = "Provider key (stored in Keystore, never shown again)"
+        col.addView(heading("Provider", dp))
+        cloudBtn = button("OpenRouter") { setMode(ProviderSettings.Mode.CLOUD) }
+        localBtn = button("Local / LAN") { setMode(ProviderSettings.Mode.LOCAL) }
+        customBtn = button("Custom server") { setMode(ProviderSettings.Mode.CUSTOM) }
+        col.addView(cloudBtn)
+        col.addView(localBtn)
+        col.addView(customBtn)
+
+        model = EditText(this).apply {
+            hint = "Model id"
+            inputType = InputType.TYPE_CLASS_TEXT
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+        col.addView(model)
+        url = EditText(this).apply {
+            hint = "Base URL (OpenAI-compatible …/v1)"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+        col.addView(url)
+        key = EditText(this).apply {
+            hint = "API key (required for OpenRouter, optional otherwise)"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
         }
         col.addView(key)
-        col.addView(button("Save key") {
-            val v = key.text.toString()
-            if (v.isNotBlank()) {
-                try {
-                    Graph.secrets.set(SecretStore.account(Graph.CREDENTIAL_ID), v)
-                } catch (e: SecretStoreLockedException) {
-                    status.append("\nKeystore is locked; unlock the phone and try again.")
-                }
-                key.setText("")
-            }
-            render()
-        })
+        col.addView(button("Save provider") { saveProvider() })
         col.addView(button("Forget key") { Graph.secrets.delete(SecretStore.account(Graph.CREDENTIAL_ID)); render() })
+
+        val saved = ProviderSettings.load(this)
+        mode = saved.mode
+        model.setText(saved.model)
+        url.setText(saved.baseUrl)
+        setMode(saved.mode)
 
         val goal = EditText(this).apply { hint = "What should I do? (e.g. reply to Maria confirming 7pm)" }
         col.addView(goal)
@@ -101,6 +126,46 @@ class MainActivity : Activity() {
         render()
     }
 
+    private fun setMode(next: ProviderSettings.Mode) {
+        mode = next
+        cloudBtn.alpha = if (next == ProviderSettings.Mode.CLOUD) 1f else 0.45f
+        localBtn.alpha = if (next == ProviderSettings.Mode.LOCAL) 1f else 0.45f
+        customBtn.alpha = if (next == ProviderSettings.Mode.CUSTOM) 1f else 0.45f
+        url.visibility = if (next == ProviderSettings.Mode.CLOUD) View.GONE else View.VISIBLE
+        model.hint = when (next) {
+            ProviderSettings.Mode.CLOUD -> "OpenRouter model (e.g. moonshotai/kimi-k3)"
+            ProviderSettings.Mode.LOCAL -> "Local model name (e.g. llama3.1)"
+            ProviderSettings.Mode.CUSTOM -> "Model id as your server lists it"
+        }
+        url.hint = when (next) {
+            ProviderSettings.Mode.LOCAL -> "Ollama/vLLM URL (e.g. http://192.168.1.10:11434/v1)"
+            ProviderSettings.Mode.CUSTOM -> "Your server URL (OpenAI-compatible …/v1)"
+            else -> url.hint
+        }
+    }
+
+    private fun saveProvider() {
+        val next = ProviderSettings(mode, model.text.toString(), url.text.toString())
+        val problem = next.problem()
+        if (problem != null) {
+            status.append("\n$problem")
+            return
+        }
+        val v = key.text.toString()
+        if (v.isNotBlank()) {
+            try {
+                Graph.secrets.set(SecretStore.account(Graph.CREDENTIAL_ID), v)
+            } catch (e: SecretStoreLockedException) {
+                status.append("\nKeystore is locked; unlock the phone and try again.")
+                return
+            }
+            key.setText("")
+        }
+        ProviderSettings.save(this, next)
+        Graph.reloadProvider()
+        render()
+    }
+
     private fun render() {
         val a11y = AssistAccessibilityService.instance != null
         val notif = AssistNotificationListener.instance != null
@@ -110,14 +175,30 @@ class MainActivity : Activity() {
         } catch (e: SecretStoreLockedException) {
             false
         }
+        val settings = Graph.provider
+        val brain = Graph.config.tier(TierName.BRAIN)
+        val host = Endpoint.host(brain.baseUrl) ?: brain.baseUrl
         status.text = buildString {
             append("TST Assist\n\n")
             append(if (a11y) "✓ screen driver on\n" else "✗ screen driver off (no-accessibility mode: answers, notifications, intents)\n")
             append(if (assistant) "✓ default assistant\n" else "✗ not the default assistant\n")
             append(if (notif) "✓ notification access\n" else "✗ notification access off\n")
-            append(if (hasKey) "✓ provider key in Keystore\n" else "✗ no provider key (cloud/home calls will refuse)\n")
+            append("${settings.label} · ${brain.slug} · $host\n")
+            append(
+                when {
+                    hasKey -> "✓ API key in Keystore\n"
+                    settings.requiresKey -> "✗ no API key (OpenRouter will refuse)\n"
+                    else -> "○ no API key (ok for local/custom)\n"
+                },
+            )
             append(if (GlobalKillSwitch.killed) "■ STOPPED by kill switch\n" else "● armed\n")
         }
+    }
+
+    private fun heading(label: String, dp: Float): TextView = TextView(this).apply {
+        text = label
+        textSize = 16f
+        setPadding(0, (16 * dp).toInt(), 0, (4 * dp).toInt())
     }
 
     private fun button(label: String, onClick: () -> Unit): Button = Button(this).apply {

@@ -44,7 +44,7 @@ The plan's diagram has three planners (Home tstd / Cloud key / Device) and a pho
 | Voice (sherpa-onnx) | No | Recognition service errors |
 | Memory / embeddings | No | |
 | CHARTER.md schema | Filename reserved | Boundary refuses the name; no schema validator |
-| Instruction inspector UI | Partial | Settings is a status + key + goal screen, not a stack/token inspector |
+| Instruction inspector UI | Partial | Settings is grants + provider (OpenRouter / LAN / custom URL + model) + goal, not a stack/token inspector |
 | tst-cu-mcp Android target | No | TM-008 |
 | Overlay highlight + card | Yes | Highlight colour is a hard-coded gold stroke; card is a framework LinearLayout |
 
@@ -97,9 +97,9 @@ This is a **client model**. It is not Home mode. Nothing in `TaskController` sen
 | `docs/reality-check.md` | This file |
 | Plan review / adversarial review | Section 8 below. The reviews never landed on the draft PR. |
 | Merge / un-draft PR #1 | Not done. This work is on `grok/m1-closeout`, not the Claude branch. |
-| Run on a phone | Not done. No Android SDK in this environment; `:app:assembleDebug` is CI-only. |
+| Run on a phone | In progress. Debug APK sideloaded; accessibility restricted-settings unlocked. Provider picker is TM-015. |
 
-Core tests re-run here: **262 / 262 pass** (`./gradlew :core:test`, JDK 17, no SDK).
+Core tests re-run here: **264 / 264 pass** (`./gradlew :core:test`, JDK 17). One Endpoints redirect test flaked on MockWebServer timeout and passed on retry.
 
 ---
 

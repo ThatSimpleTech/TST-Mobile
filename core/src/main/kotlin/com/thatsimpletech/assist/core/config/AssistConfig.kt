@@ -101,6 +101,24 @@ data class AssistConfig(
      */
     val allowedHosts: Set<String> get() = active.hosts
 
+    /**
+     * The settings screen's overlay: one OpenAI-compatible endpoint and slug for all three
+     * router tiers, prices taken from [template]. The host of [baseUrl] becomes the only
+     * name [com.thatsimpletech.assist.core.net.Endpoints] will open.
+     */
+    fun withUserEndpoint(
+        baseUrl: String,
+        slug: String,
+        credential: String?,
+        template: String,
+        name: String = USER_PRESET,
+    ): AssistConfig {
+        val src = presets[template] ?: error("template preset '$template' is not in the config")
+        fun rewire(t: TierConfig) = t.copy(slug = slug, baseUrl = baseUrl, credential = credential)
+        val preset = Preset(rewire(src.brain), rewire(src.worker), rewire(src.validator))
+        return copy(preset = name, presets = presets + (name to preset))
+    }
+
     fun validate(): List<String> {
         val problems = ArrayList<String>()
         if (presets.isEmpty()) problems += "presets must not be empty"
@@ -120,6 +138,9 @@ data class AssistConfig(
 
     companion object {
         const val DEFAULT_PRESET = "tst-default"
+
+        /** Written by the settings screen; never shipped in config.yaml. */
+        const val USER_PRESET = "user"
 
         /** The desktop's implicit key: an off-box tier with no credential uses it. */
         const val DEFAULT_CREDENTIAL = "openrouter"

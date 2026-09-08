@@ -9,6 +9,7 @@ import com.thatsimpletech.assist.approval.ApprovalNotifier
 import com.thatsimpletech.assist.approval.OverlayCard
 import com.thatsimpletech.assist.audit.AndroidSqlExecutor
 import com.thatsimpletech.assist.core.audit.AuditStore
+import com.thatsimpletech.assist.config.ProviderSettings
 import com.thatsimpletech.assist.core.config.AssistConfig
 import com.thatsimpletech.assist.core.net.Endpoints
 import com.thatsimpletech.assist.core.policy.PolicyPack
@@ -41,11 +42,16 @@ object Graph {
 
     val pack: PolicyPack by lazy { PolicyPack.loadDefault() }
 
-    /** The shipped presets until a settings editor exists; the user's copy would live in the rules dir. */
-    val config: AssistConfig by lazy { AssistConfig.loadDefault() }
+    /**
+     * Active config: shipped YAML plus the settings-screen overlay (model, base URL, mode).
+     * Reloaded when the person taps Save provider, so a running task keeps the old client.
+     */
+    val config: AssistConfig get() = _config
+    val endpoints: Endpoints get() = _endpoints
+    val provider: ProviderSettings get() = ProviderSettings.load(app)
 
-    /** The one place any outbound connection is made (plan §1, no telemetry). */
-    val endpoints: Endpoints by lazy { Endpoints(config.allowedHosts) }
+    @Volatile private lateinit var _config: AssistConfig
+    @Volatile private lateinit var _endpoints: Endpoints
 
     val secrets: SecretStore by lazy { KeystoreSecretStore(app) }
     val notifier: ApprovalNotifier by lazy { ApprovalNotifier(app) }
@@ -93,5 +99,13 @@ object Graph {
 
     fun init(application: Application) {
         app = application
+        reloadProvider()
+    }
+
+    /** Rebuilds config and the outbound host gate from what is on the settings screen. */
+    fun reloadProvider() {
+        val next = provider.toConfig(AssistConfig.loadDefault())
+        _config = next
+        _endpoints = Endpoints(next.allowedHosts)
     }
 }

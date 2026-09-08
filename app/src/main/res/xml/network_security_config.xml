@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Cleartext is refused everywhere except the tailnet: tstd serves plain ws:// and Tailscale is
-     the transport security (TST Desk remote-connect.ts). Home mode therefore uses the box's
-     MagicDNS name (*.ts.net), never a bare IP. -->
+<!-- TM-015: the person names the host on the settings screen (OpenRouter, LAN Ollama, or a
+     custom OpenAI-compatible URL). Endpoints is still the only outbound door — a host that
+     is not on the active preset is refused before a socket opens. OS-level cleartext is
+     allowed so a typed http://192.168.x:11434/v1 reaches a box on the LAN. Default
+     OpenRouter stays HTTPS. Home/tstd still prefers a MagicDNS name (TM-006). -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
+    <base-config cleartextTrafficPermitted="true" />
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">ts.net</domain>
+        <domain includeSubdomains="true">localhost</domain>
     </domain-config>
 </network-security-config>

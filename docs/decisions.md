@@ -111,3 +111,11 @@ A second pass after TM-010–013. None of these loosen a promise; they close hol
 - **No redirect hop.** `Endpoints` sets `followRedirects(false)` / `followSslRedirects(false)`, so a 302 to a stranger never opens a socket. A network interceptor cannot refuse before `ConnectInterceptor` has already connected; not following is the actual door.
 - **Autofill off on the key field.** The Keystore EditText is `IMPORTANT_FOR_AUTOFILL_NO`.
 
+## TM-015 (2026-09-07) Settings names the model and the endpoint
+
+The settings screen only stored a Keystore key. The brain slug and `base_url` lived in shipped `config.yaml` (`moonshotai/kimi-k3` on OpenRouter), so a person could not pick a model, a LAN Ollama, or their own OpenAI-compatible server.
+
+The screen now has three modes — OpenRouter, Local/LAN, Custom server — plus a model id and a base URL. Save writes those to app prefs and overlays a `user` preset onto the shipped YAML: same prices as the template (`tst-default` / `local` / `home`), one slug and one host for all three router tiers. `Endpoints` is rebuilt from that host, so the allowlist is exactly what they typed. Local and custom do not require a key; OpenRouter still does.
+
+Cleartext at the OS layer is permitted so `http://192.168.x:11434/v1` reaches a box on the LAN. That is a BYOM exception to TM-006, which still stands for Home/tstd (prefer a MagicDNS name). The real door remains `Endpoints`: a host that is not on the active preset is refused before a socket opens. On-device LiteRT is still an honest refusal.
+

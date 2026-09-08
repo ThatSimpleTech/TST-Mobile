@@ -1,6 +1,7 @@
 package com.thatsimpletech.assist.task
 
 import com.thatsimpletech.assist.Graph
+import com.thatsimpletech.assist.config.ProviderSettings
 import com.thatsimpletech.assist.core.config.EndpointKind
 import com.thatsimpletech.assist.core.config.TierName
 import com.thatsimpletech.assist.core.loop.Planner
@@ -27,10 +28,12 @@ object Planners {
                 } else {
                     try {
                         Graph.secrets.get(SecretStore.account(credentialId))
-                            ?: return Choice(null, mode(tier.kind), "no provider key stored for '$credentialId'; add it in the app")
                     } catch (e: SecretStoreLockedException) {
                         return Choice(null, mode(tier.kind), "the key store is locked; unlock the phone")
                     }
+                }
+                if (key == null && Graph.provider.requiresKey) {
+                    return Choice(null, mode(tier.kind), "no provider key stored for '$credentialId'; add it in the app")
                 }
                 val client = ProviderClient(Graph.endpoints, tier.baseUrl, key, slug)
                 Choice(CloudPlanner(client, meter, tier, TierName.BRAIN, config.spendCapUsd), mode(tier.kind), "")
@@ -40,7 +43,10 @@ object Planners {
 
     private fun mode(kind: EndpointKind) = when (kind) {
         EndpointKind.ON_DEVICE -> "device"
-        EndpointKind.ON_BOX, EndpointKind.TAILNET -> "home"
-        EndpointKind.REMOTE -> "cloud-key"
+        else -> when (Graph.provider.mode) {
+            ProviderSettings.Mode.CLOUD -> "cloud-key"
+            ProviderSettings.Mode.LOCAL -> "local"
+            ProviderSettings.Mode.CUSTOM -> "custom"
+        }
     }
 }
