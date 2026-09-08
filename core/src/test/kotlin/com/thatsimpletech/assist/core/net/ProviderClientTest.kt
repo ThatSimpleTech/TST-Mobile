@@ -100,6 +100,30 @@ class ProviderClientTest {
     }
 
     @Test
+    fun emptyContentFallsBackToReasoningContent() = withServer { server, endpoints ->
+        server.enqueue(
+            MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json").setBody(
+                """{"choices":[{"message":{"role":"assistant","content":"","reasoning_content":"<think>plan</think>\ntap 3"}}],"usage":{"prompt_tokens":10,"completion_tokens":40}}""",
+            ),
+        )
+        val client = ProviderClient(endpoints, server.url("/v1").toString(), key, "ezer-chat")
+        val r = runBlocking { client.chat(messages, 1024, 0.0) }
+        assertEquals("tap 3", r.text)
+    }
+
+    @Test
+    fun nullContentFallsBackToReasoning() = withServer { server, endpoints ->
+        server.enqueue(
+            MockResponse().setResponseCode(200).setHeader("Content-Type", "application/json").setBody(
+                """{"choices":[{"message":{"role":"assistant","content":null,"reasoning":"open WhatsApp"}}],"usage":{"prompt_tokens":1,"completion_tokens":1}}""",
+            ),
+        )
+        val client = ProviderClient(endpoints, server.url("/v1").toString(), key, "ezer-chat")
+        val r = runBlocking { client.chat(messages, 64, 0.0) }
+        assertEquals("open WhatsApp", r.text)
+    }
+
+    @Test
     fun toStringNeverRevealsTheKey() {
         val client = ProviderClient(Endpoints(setOf("api.example.com")), "https://api.example.com/v1", key, "gpt-x")
         assertFalse(key in client.toString(), client.toString())

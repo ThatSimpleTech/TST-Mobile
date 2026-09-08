@@ -17,13 +17,17 @@ max_tier2_per_turn: 1          # one sensitive action per turn, no chaining
 step_budget: 12                # actions per task before the loop stops and asks
 loop_repeat_limit: 3           # same action this many times in a row stops and asks
 
-# The app allowlist. Anything not listed here is refused for every acting verb, and `open`
-# only launches labels that resolve here. `sensitive_ids` are substrings matched against
-# the view's resource id; a hit makes a tap Tier 2.
+# The app list is a label book (open "WhatsApp") and sensitive-id hints. Any installed
+# launcher app can be opened; acting verbs are allowed in any app. Sensitive controls
+# still need a card. Password / keyguard / secure screens stay refused.
 apps:
   - package: com.whatsapp
     label: WhatsApp
     aliases: [whats app, wa]
+    sensitive_ids: [send, call, voice_call, video_call, delete, forward, pay]
+  - package: com.whatsapp.w4b
+    label: WhatsApp Business
+    aliases: [wa business]
     sensitive_ids: [send, call, voice_call, video_call, delete, forward, pay]
   - package: com.google.android.apps.messaging
     label: Messages
@@ -117,14 +121,6 @@ rules:
     when: { target_password: true, acts: true }
     tier: refused
     reason: password fields are never typed into or acted on
-  - id: open-not-allowlisted
-    when: { verb: [open], open_allowlisted: false }
-    tier: refused
-    reason: that app is not on the allowlist
-  - id: app-not-allowlisted
-    when: { app_allowlisted: false, app_scoped: true }
-    tier: refused
-    reason: this app is not on the allowlist
 
   # ---- every time ----
   # Sensitive / settings first: an outside-goal Send is still Send, not "open this app".
@@ -140,6 +136,9 @@ rules:
     when: { verb: [tap, long, drag, swipe], target_sensitive: true }
     tier: every
     reason: this control sends, calls, pays, deletes, installs or shares
+  - id: open-any-app
+    when: { verb: [open] }
+    tier: silent
   - id: outside-goal-apps
     when: { app_in_goal: false, app_scoped: true }
     tier: every
@@ -148,9 +147,6 @@ rules:
   # ---- silent ----
   - id: read-only
     when: { verb: [scroll, back, home, recents, wait, more, notif_list, done, ask] }
-    tier: silent
-  - id: open-allowlisted
-    when: { verb: [open] }
     tier: silent
 
   # ---- once per task ----

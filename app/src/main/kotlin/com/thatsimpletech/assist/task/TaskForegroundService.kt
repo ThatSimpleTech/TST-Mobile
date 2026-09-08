@@ -52,7 +52,9 @@ class TaskForegroundService : Service() {
             } catch (e: Exception) {
                 "stopped: ${e.message ?: "error"}"
             }
-            Graph.notifier.updateTask(goal, outcome)
+            LastRun.save(this@TaskForegroundService, outcome)
+            Graph.notifier.finishTask(goal, outcome)
+            stopForeground(STOP_FOREGROUND_DETACH)
             stopSelf()
         }
         return START_NOT_STICKY

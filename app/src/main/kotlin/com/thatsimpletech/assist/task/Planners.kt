@@ -7,6 +7,7 @@ import com.thatsimpletech.assist.core.config.TierName
 import com.thatsimpletech.assist.core.loop.Planner
 import com.thatsimpletech.assist.core.meter.CostTracker
 import com.thatsimpletech.assist.core.net.ProviderClient
+import com.thatsimpletech.assist.core.net.ProviderKey
 import com.thatsimpletech.assist.core.secrets.SecretStore
 import com.thatsimpletech.assist.core.secrets.SecretStoreLockedException
 
@@ -28,6 +29,8 @@ object Planners {
                 } else {
                     try {
                         Graph.secrets.get(SecretStore.account(credentialId))
+                            ?.let { ProviderKey.sanitize(it, stripSkPrefix = Graph.provider.mode == ProviderSettings.Mode.EZER) }
+                            ?.ifBlank { null }
                     } catch (e: SecretStoreLockedException) {
                         return Choice(null, mode(tier.kind), "the key store is locked; unlock the phone")
                     }

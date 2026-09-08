@@ -2,8 +2,11 @@ package com.thatsimpletech.assist.a11y
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.app.ActivityOptions
+import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.Path
+import android.os.Build
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
@@ -16,6 +19,7 @@ import com.thatsimpletech.assist.core.observe.Observation
 import com.thatsimpletech.assist.core.observe.Rect
 import com.thatsimpletech.assist.core.observe.UiNode
 import com.thatsimpletech.assist.core.policy.PolicyPack
+import com.thatsimpletech.assist.core.policy.TextMatch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -118,18 +122,101 @@ class NodeExecutor(
     private fun global(action: Int): ExecResult =
         if (service.performGlobalAction(action)) ExecResult.OK else ExecResult.error("system refused")
 
-    /** Launch by label through the allowlist only. The label is a lookup key, never a command. */
-    private fun open(label: String): ExecResult {
-        val app = pack.resolveOpen(label) ?: return ExecResult.error("'$label' is not an allowlisted app")
-        val intent = service.packageManager.getLaunchIntentForPackage(app.pkg)
-            ?: return ExecResult.error("${app.label} is not installed")
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        return try {
-            service.startActivity(intent)
-            ExecResult.OK
-        } catch (e: Exception) {
-            ExecResult.error("could not open ${app.label}")
+    /** Launch by launcher label. Allowlisted names first, then any installed launcher app. */
+    private suspend fun open(label: String): ExecResult {
+        val resolved = resolveLauncher(label)
+            ?: return ExecResult.error("no installed app named '$label'")
+        val (pkg, intent) = resolved
+        val current = walker.walk().activePackage
+        if (sameApp(current, pkg)) return ExecResult(true, "already in $label")
+        intent.addFlags(
+            Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP,
+        )
+        if (!launch(intent)) return ExecResult.error("could not open $label")
+        delay(1_400)
+        val now = walker.walk().activePackage
+        return if (sameApp(now, pkg)) ExecResult.OK
+        else ExecResult.error("opened $label but the screen is still $now")
+    }
+
+    private fun resolveLauncher(label: String): Pair<String, Intent>? {
+        pack.resolveOpen(label)?.let { entry ->
+            val pkg = resolveInstalled(entry.pkg) ?: return@let
+            val intent = launchIntent(pkg) ?: return@let
+            return pkg to intent
         }
+        val key = TextMatch.fold(label)
+        if (key.isEmpty()) return null
+        val pm = service.packageManager
+        val probe = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val hits = pm.queryIntentActivities(probe, 0)
+        val exact = hits.firstOrNull { TextMatch.fold(it.loadLabel(pm).toString()) == key }
+        val word = exact ?: hits.firstOrNull { TextMatch.containsWord(it.loadLabel(pm).toString(), label) }
+        val hit = word ?: return null
+        val pkg = hit.activityInfo.packageName
+        val intent = Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_LAUNCHER)
+            .setClassName(pkg, hit.activityInfo.name)
+        return pkg to intent
+    }
+
+    private fun sameApp(current: String, pkg: String): Boolean {
+        if (current == pkg) return true
+        val wa = setOf("com.whatsapp", "com.whatsapp.w4b")
+        return current in wa && pkg in wa
+    }
+
+    private fun resolveInstalled(pkg: String): String? {
+        if (launchIntent(pkg) != null) return pkg
+        if (pkg == "com.whatsapp" && launchIntent("com.whatsapp.w4b") != null) return "com.whatsapp.w4b"
+        return null
+    }
+
+    private fun launchIntent(pkg: String): Intent? {
+        val pm = service.packageManager
+        pm.getLaunchIntentForPackage(pkg)?.let { return it }
+        val probe = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setPackage(pkg)
+        val hit = pm.queryIntentActivities(probe, 0).firstOrNull() ?: return null
+        return Intent(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_LAUNCHER)
+            .setClassName(hit.activityInfo.packageName, hit.activityInfo.name)
+    }
+
+    private fun launch(intent: Intent): Boolean {
+        val opts = launchOptions()
+        val tries = listOf(
+            { service.startActivity(intent, opts) },
+            { service.applicationContext.startActivity(intent, opts) },
+            {
+                val pi = PendingIntent.getActivity(
+                    service,
+                    pkgCode(intent),
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+                pi.send(service, 0, null, null, null, null, opts)
+            },
+        )
+        return tries.any { runCatching { it() }.isSuccess }
+    }
+
+    private fun pkgCode(intent: Intent): Int = (intent.`package` ?: intent.component?.packageName ?: "app").hashCode()
+
+    private fun launchOptions(): android.os.Bundle {
+        val opts = ActivityOptions.makeBasic()
+        if (Build.VERSION.SDK_INT >= 35) {
+            opts.setPendingIntentBackgroundActivityStartMode(
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS,
+            )
+        } else if (Build.VERSION.SDK_INT >= 34) {
+            @Suppress("DEPRECATION")
+            opts.setPendingIntentBackgroundActivityStartMode(
+                ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED,
+            )
+        }
+        return opts.toBundle()
     }
 
     // ---- gestures ----

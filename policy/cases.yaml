@@ -54,19 +54,19 @@ cases:
     expect: { tier: silent, rule: read-only }
   - name: open an allowlisted app by label is silent
     request: { verb: open, app: com.android.launcher3, goal_apps: [com.spotify.music], open_label: Spotify }
-    expect: { tier: silent, rule: open-allowlisted }
+    expect: { tier: silent, rule: open-any-app }
   - name: open by alias, any case
     request: { verb: open, app: com.android.launcher3, goal_apps: [com.spotify.music], open_label: "MÚSICA" }
-    expect: { tier: silent, rule: open-allowlisted }
-  - name: open an unknown app is refused
+    expect: { tier: silent, rule: open-any-app }
+  - name: open any installed app is silent
     request: { verb: open, app: com.android.launcher3, goal_apps: [com.whatsapp], open_label: Terminal }
-    expect: { tier: refused, rule: open-not-allowlisted }
-  - name: open an allowlisted app outside the goal set asks every time
+    expect: { tier: silent, rule: open-any-app }
+  - name: open another app is still silent (intent lock is on taps, not launch)
     request: { verb: open, app: com.android.launcher3, goal_apps: [com.whatsapp], open_label: Gmail }
-    expect: { tier: every, rule: outside-goal-apps }
-  - name: acting in a non-allowlisted app is refused
+    expect: { tier: silent, rule: open-any-app }
+  - name: acting in an unlisted app in the goal set is once
     request: { verb: tap, app: com.bank.app, goal_apps: [com.bank.app], target: { role: btn, label: Ok } }
-    expect: { tier: refused, rule: app-not-allowlisted }
+    expect: { tier: once, rule: in-app-control }
   - name: acting outside the goal app set asks every time
     request: { verb: tap, app: com.google.android.gm, goal_apps: [com.whatsapp], target: { role: btn, label: Inbox } }
     expect: { tier: every, rule: outside-goal-apps }
@@ -106,12 +106,12 @@ cases:
   - name: back is the way out of a non-allowlisted app
     request: { verb: back, app: com.bank.app, goal_apps: [com.whatsapp] }
     expect: { tier: silent, rule: read-only }
-  - name: screenshot of a non-allowlisted app is refused
+  - name: screenshot of an app outside the goal set asks every time
     request: { verb: screen_ask, app: com.bank.app, goal_apps: [com.whatsapp] }
-    expect: { tier: refused, rule: app-not-allowlisted }
+    expect: { tier: every, rule: outside-goal-apps }
   - name: scrolling an app outside the goal set asks every time
     request: { verb: scroll, app: com.google.android.gm, goal_apps: [com.whatsapp], target: { role: list, label: "" } }
     expect: { tier: every, rule: outside-goal-apps }
   - name: a permission dialog is outside the goal set
     request: { verb: tap, app: com.google.android.permissioncontroller, goal_apps: [com.whatsapp], target: { role: btn, label: Allow } }
-    expect: { tier: refused, rule: app-not-allowlisted }
+    expect: { tier: every, rule: outside-goal-apps }

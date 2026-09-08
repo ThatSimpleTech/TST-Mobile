@@ -74,6 +74,8 @@ object GoalApps {
         val named = pack.apps.filter { app ->
             (listOf(app.label) + app.aliases).any { TextMatch.containsWord(goal, it) }
         }.mapTo(LinkedHashSet()) { it.pkg }
-        return if (named.isEmpty()) emptySet() else named
+        if ("com.whatsapp" in named) named += "com.whatsapp.w4b"
+        if ("com.whatsapp.w4b" in named) named += "com.whatsapp"
+        return named
     }
 }

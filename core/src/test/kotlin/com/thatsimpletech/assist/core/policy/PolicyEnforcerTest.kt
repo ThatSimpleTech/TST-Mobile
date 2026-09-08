@@ -86,8 +86,8 @@ class PolicyEnforcerTest {
         assertEquals("com.google.android.dialer", pack.resolveOpen("TELEFONO")?.pkg)
         assertEquals(null, pack.resolveOpen("Terminal"))
         val d = enforcer.decide(Action.Open("Terminal"), "com.android.launcher3", null, false, false, wa)
-        assertEquals("open-not-allowlisted", d.rule)
-        assertEquals(Gate.REFUSE, d.gate)
+        assertEquals("open-any-app", d.rule)
+        assertEquals(Gate.PROCEED, d.gate)
     }
 
     @Test

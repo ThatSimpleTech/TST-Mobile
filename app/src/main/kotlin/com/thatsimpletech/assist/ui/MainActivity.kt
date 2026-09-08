@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
@@ -14,17 +15,20 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.view.View
+import com.thatsimpletech.assist.BuildConfig
 import com.thatsimpletech.assist.Graph
 import com.thatsimpletech.assist.a11y.AssistAccessibilityService
 import com.thatsimpletech.assist.config.ProviderSettings
 import com.thatsimpletech.assist.core.config.Endpoint
 import com.thatsimpletech.assist.core.config.TierName
+import com.thatsimpletech.assist.core.net.ProviderKey
 import com.thatsimpletech.assist.core.policy.Conformance
 import com.thatsimpletech.assist.core.policy.PolicyEnforcer
 import com.thatsimpletech.assist.core.secrets.SecretStore
 import com.thatsimpletech.assist.core.secrets.SecretStoreLockedException
 import com.thatsimpletech.assist.kill.GlobalKillSwitch
 import com.thatsimpletech.assist.notif.AssistNotificationListener
+import com.thatsimpletech.assist.task.LastRun
 import com.thatsimpletech.assist.task.TaskForegroundService
 
 /**
@@ -55,9 +59,17 @@ class MainActivity : Activity() {
         col.addView(button("Accessibility settings (screen driver)") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
         col.addView(button("Default assistant") { startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) })
         col.addView(button("Notification access") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) })
+        col.addView(button("Draw over other apps (so EZER can open WhatsApp)") {
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName"),
+                ),
+            )
+        })
 
         col.addView(TextView(this).apply {
-            text = "EZER drives this phone. First smoke: Accessibility on → Save EZER (Tailscale MagicDNS, model ezer-chat) → open WhatsApp → goal names WhatsApp → Run task. Approve type, then Send. OpenRouter is a fallback when the box is down. Stop is on the task notification and the Quick Settings tile."
+            text = "EZER drives this phone. Accessibility on → Draw over other apps on → Save EZER → Run task. EZER will open WhatsApp itself. Approve type, then Send."
             textSize = 14f
             setPadding(0, (8 * dp).toInt(), 0, (12 * dp).toInt())
         })
@@ -101,8 +113,21 @@ class MainActivity : Activity() {
         col.addView(goal)
         col.addView(button("Run task") {
             val g = goal.text.toString().trim()
-            if (g.isNotEmpty()) {
+            if (g.isEmpty()) {
+                status.append("\nno goal")
+                return@button
+            }
+            if (AssistAccessibilityService.instance == null) {
+                status.append("\nScreen driver is off. Tap Accessibility settings, enable EZER, then Run task again.")
+                return@button
+            }
+            try {
                 startForegroundService(Intent(this, TaskForegroundService::class.java).putExtra(TaskForegroundService.EXTRA_GOAL, g))
+                LastRun.save(this, "started: $g")
+                status.append("\nstarted: $g — watch the EZER notification")
+            } catch (e: Exception) {
+                LastRun.save(this, "could not start: ${e.message}")
+                status.append("\ncould not start: ${e.message}")
             }
         })
         col.addView(button("Stop everything (kill switch)") { GlobalKillSwitch.kill(); render() })
@@ -158,7 +183,10 @@ class MainActivity : Activity() {
         }
         ProviderSettings.save(this, next)
         Graph.reloadProvider()
-        val v = key.text.toString()
+        val v = ProviderKey.sanitize(
+            key.text.toString(),
+            stripSkPrefix = next.mode == ProviderSettings.Mode.EZER,
+        )
         if (v.isNotBlank()) {
             try {
                 val account = SecretStore.account(next.credentialId ?: Graph.CREDENTIAL_ID)
@@ -185,10 +213,11 @@ class MainActivity : Activity() {
         val brain = Graph.config.tier(TierName.BRAIN)
         val host = Endpoint.host(brain.baseUrl) ?: brain.baseUrl
         status.text = buildString {
-            append("EZER\n\n")
+            append("EZER ${BuildConfig.VERSION_NAME}\n\n")
             append(if (a11y) "✓ screen driver on\n" else "✗ screen driver off (no-accessibility mode: answers, notifications, intents)\n")
             append(if (assistant) "✓ default assistant\n" else "✗ not the default assistant\n")
             append(if (notif) "✓ notification access\n" else "✗ notification access off\n")
+            append(if (Settings.canDrawOverlays(this@MainActivity)) "✓ can open other apps\n" else "✗ draw-over-apps off (EZER cannot leave this screen)\n")
             append("${settings.label} · ${brain.slug} · $host\n")
             append(
                 when {
@@ -198,6 +227,8 @@ class MainActivity : Activity() {
                 },
             )
             append(if (GlobalKillSwitch.killed) "■ STOPPED by kill switch\n" else "● armed\n")
+            val last = LastRun.load(this@MainActivity)
+            if (last.isNotBlank()) append("\nLast run: $last\n")
         }
     }
 

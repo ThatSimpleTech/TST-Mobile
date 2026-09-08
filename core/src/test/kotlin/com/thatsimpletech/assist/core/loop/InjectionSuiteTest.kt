@@ -136,15 +136,13 @@ class InjectionSuiteTest {
     }
 
     @Test
-    fun openingAnAppOffTheAllowlistIsRefusedTwiceThenStops() {
-        val (outcome, executor, planner) = run(
-            replies = listOf("open \"Terminal\"", "open \"Terminal\""),
+    fun openingAnyAppIsExecutedNotRefused() {
+        val (outcome, executor, _) = run(
+            replies = listOf("open \"Terminal\"", "done \"opened\""),
             screens = listOf(Screens.whatsapp()),
         )
-        assertIs<Outcome.Stopped>(outcome)
-        assertTrue(outcome.reason.startsWith("refused twice"), outcome.reason)
-        assertTrue(executor.actions.isEmpty())
-        assertTrue(planner.prompts[1].contains("refused"), planner.prompts[1])
+        assertEquals(Outcome.Done("opened"), outcome)
+        assertEquals(listOf("open \"Terminal\""), executor.actions.map { it.render() })
     }
 
     @Test

@@ -70,6 +70,21 @@ class ApprovalNotifier(private val context: Context) {
         nm.notify(TASK_NOTIFICATION_ID, taskNotification(goal, meter))
     }
 
+    /** After the service stops: keep the outcome visible, no longer ongoing. */
+    fun finishTask(goal: String, outcome: String) {
+        val n = Notification.Builder(context, CHANNEL_TASK)
+            .setSmallIcon(Icon.createWithResource(context, android.R.drawable.ic_menu_manage))
+            .setContentTitle("EZER: $goal")
+            .setContentText(outcome)
+            .setStyle(Notification.BigTextStyle().bigText(outcome))
+            .setOngoing(false)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_STATUS)
+            .build()
+        nm.notify(TASK_NOTIFICATION_ID, n)
+    }
+
     private fun pending(requestId: Long, action: String, code: Int): PendingIntent =
         PendingIntent.getBroadcast(
             context, (requestId * 10 + code).toInt(),

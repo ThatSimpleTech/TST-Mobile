@@ -123,7 +123,7 @@ sealed class Action(val verb: Verb) {
         override fun plainWords() = "Open recent apps"
     }
 
-    /** Launch by label from the allowlist. The label is looked up, never executed. */
+    /** Launch by launcher label. The label is looked up, never executed. */
     data class Open(val app: String) : Action(Verb.OPEN) {
         override fun render() = "open ${Quote.q(app)}"
         override fun plainWords() = "Open $app"

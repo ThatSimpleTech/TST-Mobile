@@ -29,7 +29,7 @@ class CloudPlanner(
         val result = try {
             client.chat(
                 messages = listOf(
-                    ChatMessage("system", "Reply with exactly one action line from the grammar. No prose."),
+                    ChatMessage("system", "Reply with exactly one action line from the grammar, after any thinking. The action line must appear in the message content. No prose."),
                     ChatMessage("user", prompt),
                 ),
                 maxTokens = MAX_ACTION_TOKENS,
@@ -38,6 +38,9 @@ class CloudPlanner(
         } catch (e: Exception) {
             // The reason reaches the person as a question, never as a stack trace, and never with a key in it.
             return "ask \"The model call failed: ${Redactor.throwableMessage(e).replace('"', '\'')}\""
+        }
+        if (result.text.isBlank()) {
+            return "ask \"The model returned an empty action (thinking used the token budget). Retry.\""
         }
         meter.record(
             tierName, client.model,
@@ -48,7 +51,7 @@ class CloudPlanner(
     }
 
     companion object {
-        /** One grammar line; the longest legal line is a `type` with a sentence of text. */
-        const val MAX_ACTION_TOKENS = 120
+        /** Grammar is one line. Qwen3-class thinking models burn thousands of tokens first. */
+        const val MAX_ACTION_TOKENS = 8192
     }
 }

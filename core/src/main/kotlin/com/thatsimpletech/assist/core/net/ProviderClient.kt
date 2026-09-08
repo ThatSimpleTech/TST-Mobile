@@ -85,7 +85,7 @@ class ProviderClient(
         } ?: throw ProviderException(200, "provider $host returned a reply that is not a JSON object")
         val choice = (obj["choices"] as? JsonArray)?.firstOrNull() as? JsonObject
             ?: throw ProviderException(200, "provider $host returned no choices")
-        val content = ((choice["message"] as? JsonObject)?.get("content") as? JsonPrimitive)?.contentOrNull ?: ""
+        val content = messageText(choice)
         val usage = obj["usage"] as? JsonObject
         val details = usage?.get("prompt_tokens_details") as? JsonObject
         return ChatResult(
@@ -97,6 +97,38 @@ class ProviderClient(
             ),
         )
     }
+
+    /**
+     * OpenAI `message.content`, or LiteLLM/DeepSeek `reasoning_content` when content is
+     * empty (thinking models often spend the token cap inside the think block).
+     */
+    private fun messageText(choice: JsonObject): String {
+        val msg = choice["message"] as? JsonObject
+        val content = jsonText(msg?.get("content"))
+        if (!content.isNullOrBlank()) return stripThink(content)
+        val reasoning = jsonText(msg?.get("reasoning_content")) ?: jsonText(msg?.get("reasoning"))
+        if (!reasoning.isNullOrBlank()) {
+            val after = stripThink(reasoning)
+            if (after.isNotBlank()) return after
+            return reasoning.lineSequence().map { it.trim() }.lastOrNull { it.isNotEmpty() }.orEmpty()
+        }
+        return jsonText(choice["text"]).orEmpty()
+    }
+
+    private fun jsonText(el: kotlinx.serialization.json.JsonElement?): String? = when (el) {
+        is JsonPrimitive -> el.contentOrNull?.trim()?.ifEmpty { null }
+        is JsonArray -> el.mapNotNull { part ->
+            when (part) {
+                is JsonPrimitive -> part.contentOrNull
+                is JsonObject -> (part["text"] as? JsonPrimitive)?.contentOrNull
+                else -> null
+            }
+        }.joinToString("").trim().ifEmpty { null }
+        else -> null
+    }
+
+    private fun stripThink(s: String): String =
+        THINK.close.replace(THINK.open.replace(s, " "), " ").trim()
 
     /** Providers echo keys in error bodies ("Incorrect API key provided: sk-..."). Ours never leaves this object. */
     private fun scrub(body: String): String {
@@ -119,5 +151,9 @@ class ProviderClient(
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
         const val EXCERPT_CHARS = 200
+        private object THINK {
+            val open = Regex("(?is)<think>.*?</think>")
+            val close = Regex("(?is)</?think>")
+        }
     }
 }
