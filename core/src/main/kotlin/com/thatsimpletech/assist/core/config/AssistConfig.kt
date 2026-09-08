@@ -141,8 +141,28 @@ data class AssistConfig(
         return problems
     }
 
+    /** The YAML this config round-trips to; what the app writes as the user's config.yaml. */
+    fun toYaml(): String = yaml.encodeToString(serializer(), this)
+
+    /**
+     * The same config with the `home` preset pointed at a box of yours: every tier at [baseUrl]
+     * with [slug], priced at zero, and bound to [credentialId] when the box wants a key (a
+     * LiteLLM key, say). The active preset becomes `home`. Pure; the caller persists it.
+     */
+    fun withHome(baseUrl: String, slug: String, credentialId: String?, credentialName: String = "Home box key"): AssistConfig {
+        val tier = TierConfig(
+            slug = slug.trim(), baseUrl = baseUrl.trim(), inputPrice = 0.0, outputPrice = 0.0, cacheReadPrice = 0.0,
+            contextWindow = 32768, maxOutputTokens = 4096, credential = credentialId?.trim()?.ifEmpty { null },
+        )
+        val creds = if (tier.credential != null && tier.credential !in credentials) {
+            credentials + (tier.credential to CredentialConfig(name = credentialName))
+        } else credentials
+        return copy(preset = HOME_PRESET, presets = presets + (HOME_PRESET to Preset(tier, tier, tier)), credentials = creds)
+    }
+
     companion object {
         const val DEFAULT_PRESET = "tst-default"
+        const val HOME_PRESET = "home"
 
         /** The desktop's implicit key: a third-party tier with no credential uses it. */
         const val DEFAULT_CREDENTIAL = "openrouter"

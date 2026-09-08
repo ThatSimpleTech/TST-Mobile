@@ -48,9 +48,10 @@ object TaskController {
             kill = GlobalKillSwitch, enforcer = enforcer, builder = ObservationBuilder(),
             parser = ActionParser(), instructions = Graph.instructions(),
             listener = AuditListener(audit, sessionId, meter, Graph.clock),
+            notifications = AssistNotificationListener.instance,
         )
         onMeter(meterChip(meter))
-        val goalApps = GoalApps.infer(goal, pack)
+        val goalApps = GoalApps.infer(goal, pack, screenApp = walker.walk().activePackage)
         return when (val outcome = runner.run(goal, goalApps)) {
             is Outcome.Done -> "done: ${outcome.summary}"
             is Outcome.Ask -> "question: ${outcome.question}"
@@ -64,15 +65,18 @@ object TaskController {
 }
 
 /**
- * The goal's app set (the intent lock, plan §4). Until a task-planning step exists, the set
- * is every allowlisted app the goal names by label or alias; a goal that names none gets the
- * whole allowlist, so the lock still holds at the allowlist boundary.
+ * The goal's app set (the intent lock, plan §4). The apps the goal names by label or alias;
+ * failing that, the allowlisted app on screen when the task starts; failing that, nothing,
+ * so the first action in any app asks and the person's approval admits that app. The set is
+ * never widened silently to the whole allowlist: that would switch the lock off.
  */
 object GoalApps {
-    fun infer(goal: String, pack: PolicyPack): Set<String> {
+    fun infer(goal: String, pack: PolicyPack, screenApp: String? = null): Set<String> {
         val named = pack.apps.filter { app ->
             (listOf(app.label) + app.aliases).any { TextMatch.containsWord(goal, it) }
         }.mapTo(LinkedHashSet()) { it.pkg }
-        return if (named.isEmpty()) pack.packages else named
+        if (named.isNotEmpty()) return named
+        if (screenApp != null && screenApp in pack.packages) return setOf(screenApp)
+        return emptySet()
     }
 }

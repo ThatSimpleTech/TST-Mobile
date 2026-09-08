@@ -15,7 +15,8 @@ import com.thatsimpletech.assist.core.observe.ObservationFormatter
  * life of the notification. Text is rendered through the same escaping as screen labels: it is
  * data, and the policy gates every reply as Tier 2.
  */
-class AssistNotificationListener : NotificationListenerService(), NodeExecutor.NotificationActions {
+class AssistNotificationListener : NotificationListenerService(), NodeExecutor.NotificationActions,
+    com.thatsimpletech.assist.core.loop.NotificationDirectory {
     private val ids = LinkedHashMap<String, String>() // key -> nId
     private var next = 1
 
@@ -37,6 +38,9 @@ class AssistNotificationListener : NotificationListenerService(), NodeExecutor.N
 
     private fun current(): List<StatusBarNotification> =
         (activeNotifications ?: emptyArray()).filter { it.isClearable || it.notification.extras.getCharSequence(Notification.EXTRA_TITLE) != null }
+
+    /** The posting package, for the policy: notification verbs are judged by it. */
+    override fun packageOf(id: String): String? = current().firstOrNull { idFor(it) == id }?.packageName
 
     override fun list(): List<String> = current().map { sbn ->
         val e = sbn.notification.extras

@@ -32,15 +32,16 @@ object Planners {
                         return Choice(null, mode(tier.kind), "the key store is locked; unlock the phone")
                     }
                 }
-                val client = ProviderClient(Graph.endpoints, tier.baseUrl, key, slug)
+                val client = ProviderClient(Graph.endpoints(), config.resolveBaseUrl(tier), key, slug)
                 Choice(CloudPlanner(client, meter, tier, TierName.BRAIN, config.spendCapUsd), mode(tier.kind), "")
             }
         }
     }
 
+    /** `home-direct`: OpenAI-compatible calls straight to a box of yours. Home mode through tstd (TM-010) is not built. */
     private fun mode(kind: EndpointKind) = when (kind) {
         EndpointKind.ON_DEVICE -> "device"
-        EndpointKind.ON_BOX, EndpointKind.TAILNET -> "home"
+        EndpointKind.ON_BOX, EndpointKind.TAILNET -> "home-direct"
         EndpointKind.REMOTE -> "cloud-key"
     }
 }

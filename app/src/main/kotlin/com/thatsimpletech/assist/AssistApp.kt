@@ -41,11 +41,73 @@ object Graph {
 
     val pack: PolicyPack by lazy { PolicyPack.loadDefault() }
 
-    /** The shipped presets until a settings editor exists; the user's copy would live in the rules dir. */
-    val config: AssistConfig by lazy { AssistConfig.loadDefault() }
+    /**
+     * Agent-unwritable rules dir (plan §6): ASSISTANT.md, profiles/, policy.yaml, and the
+     * person's config.yaml. Seeded from the core jar on first run. The boundary's root is the
+     * whole files dir, with this subtree refused, the way the desktop refuses .tst/rules.
+     */
+    val rulesDir: File by lazy {
+        val dir = File(app.filesDir, "rules").apply { mkdirs() }
+        val assistant = File(dir, InstructionStack.DEVICE_FILE)
+        if (!assistant.exists()) assistant.writeText(DefaultInstructions.load())
+        dir
+    }
+    val rulesBoundary: RulesBoundary by lazy { RulesBoundary(app.filesDir.toPath()) }
+    private val userConfigFile: File get() = File(rulesDir, "config.yaml")
 
-    /** The one place any outbound connection is made (plan §1, no telemetry). */
-    val endpoints: Endpoints by lazy { Endpoints(config.allowedHosts) }
+    /** Why the user's config was not used, if it was not; shown on the settings screen. */
+    @Volatile
+    var configProblem: String? = null
+        private set
+
+    /** The person's config when it parses, else the shipped presets. Replaced by [saveConfig]. */
+    @Volatile
+    var config: AssistConfig = AssistConfig.loadDefault()
+        private set
+
+    /** The one place any outbound connection is made (plan §1, no telemetry), for the current config. */
+    private var endpointsFor: Pair<AssistConfig, Endpoints>? = null
+
+    @Synchronized
+    fun endpoints(): Endpoints {
+        val current = config
+        endpointsFor?.let { (cfg, ep) -> if (cfg === current) return ep }
+        return Endpoints(current.allowedHosts).also { endpointsFor = current to it }
+    }
+
+    @Synchronized
+    fun reloadConfig() {
+        val f = userConfigFile
+        if (!f.exists()) {
+            config = AssistConfig.loadDefault()
+            configProblem = null
+            return
+        }
+        try {
+            config = AssistConfig.parse(f.readText())
+            configProblem = null
+        } catch (e: Exception) {
+            config = AssistConfig.loadDefault()
+            configProblem = Redactor.throwableMessage(e)
+        }
+    }
+
+    /** Validates, writes the person's config.yaml, and makes it current. */
+    @Synchronized
+    fun saveConfig(cfg: AssistConfig) {
+        val problems = cfg.validate()
+        require(problems.isEmpty()) { problems.joinToString("; ") }
+        userConfigFile.writeText(cfg.toYaml())
+        config = cfg
+        configProblem = null
+    }
+
+    /** Back to the shipped presets: the person's file goes away. */
+    @Synchronized
+    fun resetConfig() {
+        userConfigFile.delete()
+        reloadConfig()
+    }
 
     val secrets: SecretStore by lazy { KeystoreSecretStore(app) }
     val notifier: ApprovalNotifier by lazy { ApprovalNotifier(app) }
@@ -64,18 +126,6 @@ object Graph {
         store
     }
 
-    /**
-     * Agent-unwritable rules dir: ASSISTANT.md, CHARTER.md, profiles/, policy.yaml (plan §6).
-     * Seeded from the core jar on first run; the boundary refuses any agent write into it.
-     */
-    val rulesDir: File by lazy {
-        val dir = File(app.filesDir, "rules").apply { mkdirs() }
-        val assistant = File(dir, InstructionStack.DEVICE_FILE)
-        if (!assistant.exists()) assistant.writeText(DefaultInstructions.load())
-        dir
-    }
-    val rulesBoundary: RulesBoundary by lazy { RulesBoundary(rulesDir.toPath()) }
-
     /** The resolved instruction stack for a run (device layer only until profiles exist). */
     fun instructions(): String {
         val layers = InstructionStack.resolve(rulesDir.toPath(), null, "")
@@ -88,10 +138,14 @@ object Graph {
         prefs.getString("id", null) ?: UUID.randomUUID().toString().also { prefs.edit().putString("id", it).apply() }
     }
 
-    /** Provider credential account for Cloud-key mode. */
+    /** Provider credential account for Cloud-key mode (the implicit desktop credential). */
     const val CREDENTIAL_ID = "openrouter"
+
+    /** Credential id for a home box that wants a key (a LiteLLM key, say). */
+    const val HOME_CREDENTIAL_ID = "home"
 
     fun init(application: Application) {
         app = application
+        reloadConfig()
     }
 }

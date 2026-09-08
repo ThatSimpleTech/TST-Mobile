@@ -23,7 +23,7 @@ class CloudPlanner(
 ) : Planner {
     override suspend fun next(prompt: String): String {
         if (meter.capExceeded(spendCapUsd)) {
-            return "ask \"The spend cap of \$${"%.2f".format(spendCapUsd)} is reached. Raise it in the app to continue.\""
+            return "ask " + com.thatsimpletech.assist.core.grammar.Quote.q("The spend cap of \$${"%.2f".format(spendCapUsd)} is reached. Raise it in the app to continue.")
         }
         meter.beginTurn()
         val result = try {
@@ -35,9 +35,12 @@ class CloudPlanner(
                 maxTokens = MAX_ACTION_TOKENS,
                 temperature = 0.0,
             )
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             // The reason reaches the person as a question, never as a stack trace, and never with a key in it.
-            return "ask \"The model call failed: ${Redactor.throwableMessage(e).replace('"', '\'')}\""
+            val why = com.thatsimpletech.assist.core.observe.ObservationFormatter.clean(Redactor.throwableMessage(e), 160)
+            return "ask " + com.thatsimpletech.assist.core.grammar.Quote.q("The model call failed: $why")
         }
         meter.record(
             tierName, client.model,

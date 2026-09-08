@@ -96,7 +96,7 @@ class TreeWalker(private val service: AccessibilityService) {
             identity = identityOf(node, pkg, window, path),
             role = roleOf(cls, node),
             bounds = b.core(),
-            label = if (node.isPassword) (node.contentDescription?.toString() ?: node.hintText?.toString() ?: "Password") else labelOf(node),
+            label = if (node.isPassword) (node.contentDescription?.toString() ?: node.hintText?.toString() ?: "Password") else effectiveLabel(node),
             resourceId = node.viewIdResourceName,
             clickable = node.isClickable,
             longClickable = node.isLongClickable,
@@ -116,6 +116,31 @@ class TreeWalker(private val service: AccessibilityService) {
 
     companion object {
         const val MAX_NODES = 2000
+
+        /**
+         * The label the person sees. A menu row, list row or bottom-sheet item is usually a
+         * clickable container whose words live in a child TextView; without this a "Delete" row
+         * would carry no label, and the sensitive-control rule could not see it (plan §4).
+         * Identity still uses the node's own label, so the hint stays stable.
+         */
+        fun effectiveLabel(node: AccessibilityNodeInfo): String {
+            val own = labelOf(node)
+            if (own.isNotEmpty() || !(node.isClickable || node.isLongClickable)) return own
+            return descendantLabel(node, depth = 0)
+        }
+
+        private fun descendantLabel(node: AccessibilityNodeInfo, depth: Int): String {
+            if (depth > 3) return ""
+            val count = minOf(node.childCount, 20)
+            for (i in 0 until count) {
+                val child = node.getChild(i) ?: continue
+                val l = labelOf(child)
+                if (l.isNotEmpty()) return l
+                val deeper = descendantLabel(child, depth + 1)
+                if (deeper.isNotEmpty()) return deeper
+            }
+            return ""
+        }
 
         /** Text first, then content description, then hint. Password contents are never read. */
         fun labelOf(node: AccessibilityNodeInfo): String {

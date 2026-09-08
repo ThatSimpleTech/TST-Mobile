@@ -46,11 +46,15 @@ class TaskForegroundService : Service() {
         job = scope.launch {
             val outcome = try {
                 TaskController.run(goal) { meter -> Graph.notifier.updateTask(goal, meter) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // The kill switch or a newer task cancelled us: leave the service to whoever is running now.
+                throw e
             } catch (e: Exception) {
-                "stopped: ${e.message ?: "error"}"
+                "stopped: ${com.thatsimpletech.assist.core.redact.Redactor.throwableMessage(e)}"
             }
             Graph.notifier.updateTask(goal, outcome)
-            stopSelf()
+            // Only this start may stop the service; a newer start keeps it alive.
+            stopSelfResult(startId)
         }
         return START_NOT_STICKY
     }

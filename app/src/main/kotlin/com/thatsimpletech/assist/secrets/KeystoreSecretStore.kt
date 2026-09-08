@@ -34,6 +34,11 @@ class KeystoreSecretStore(context: Context) : SecretStore {
             throw SecretStoreLockedException()
         } catch (e: KeyPermanentlyInvalidatedException) {
             throw SecretStoreLockedException("key invalidated; store the secret again")
+        } catch (e: java.security.GeneralSecurityException) {
+            // The Keystore key no longer matches this ciphertext (keystore reset, restore to a new
+            // device). The secret is unreadable for good: forget it and let the person re-enter it.
+            prefs.edit().remove(account).apply()
+            null
         }
     }
 
@@ -53,6 +58,7 @@ class KeystoreSecretStore(context: Context) : SecretStore {
         prefs.edit().remove(account).apply()
     }
 
+    @Synchronized
     private fun key(): SecretKey {
         val ks = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         (ks.getKey(ALIAS, null) as? SecretKey)?.let { return it }

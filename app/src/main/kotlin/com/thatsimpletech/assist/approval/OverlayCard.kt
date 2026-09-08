@@ -31,14 +31,15 @@ class OverlayCard(private val service: AccessibilityService) {
     fun show(title: String, body: String, target: Rect?, onApprove: () -> Unit, onDeny: () -> Unit) {
         main.post {
             hideNow()
+            // A service that was switched off between ask() and now has no valid window token;
+            // the notification remains the approval surface in that case.
+            if (com.thatsimpletech.assist.a11y.AssistAccessibilityService.instance !== service) return@post
             if (target != null) {
                 val h = HighlightView(service, target)
-                wm.addView(h, fullScreenParams())
-                highlight = h
+                if (runCatching { wm.addView(h, fullScreenParams()) }.isSuccess) highlight = h
             }
             val c = buildCard(title, body, onApprove, onDeny)
-            wm.addView(c, cardParams())
-            card = c
+            if (runCatching { wm.addView(c, cardParams()) }.isSuccess) card = c
         }
     }
 

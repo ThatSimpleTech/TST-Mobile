@@ -77,18 +77,32 @@ class NodeExecutor(
         if (target == null) return ExecResult.error("no target")
         val live = walker.find(target.identity) ?: return ExecResult.error("control is no longer on screen")
         if (!live.isVisibleToUser) return ExecResult.error("control is not visible")
+        // C3, second line of defence: the identity matched, now the words must too. A recycled
+        // list row keeps its identity when its contents change; what was approved is the label.
+        if (!target.password && target.label.isNotBlank() && TreeWalker.effectiveLabel(live) != target.label) {
+            return ExecResult.error("control changed, look again")
+        }
         return block(live)
     }
 
     private fun setText(n: AccessibilityNodeInfo, text: String): ExecResult {
         if (n.isPassword) return ExecResult.error("password field")
+        if (!n.isEditable) return ExecResult.error("not a text field")
         if (!n.isFocused) n.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
         val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text) }
         if (n.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return ExecResult.OK
-        // Clipboard paste fallback: put the text on the clipboard, then ACTION_PASTE.
-        val cm = service.getSystemService(android.content.ClipboardManager::class.java)
-        cm?.setPrimaryClip(android.content.ClipData.newPlainText("tst-assist", text))
-        return if (n.performAction(AccessibilityNodeInfo.ACTION_PASTE)) ExecResult.OK else ExecResult.error("field refused text")
+        // Clipboard paste fallback. The clip is marked sensitive (no preview, no history) and
+        // cleared again right after, so typed text never lingers where other apps can read it.
+        val cm = service.getSystemService(android.content.ClipboardManager::class.java) ?: return ExecResult.error("field refused text")
+        val clip = android.content.ClipData.newPlainText("tst-assist", text).apply {
+            description.extras = android.os.PersistableBundle().apply { putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true) }
+        }
+        return try {
+            cm.setPrimaryClip(clip)
+            if (n.performAction(AccessibilityNodeInfo.ACTION_PASTE)) ExecResult.OK else ExecResult.error("field refused text")
+        } finally {
+            runCatching { cm.clearPrimaryClip() }
+        }
     }
 
     private suspend fun scroll(n: AccessibilityNodeInfo, dir: Direction, bounds: Rect): ExecResult {
@@ -161,27 +175,34 @@ class NodeExecutor(
         return gesture(Path().apply { moveTo(x0, y0); lineTo(x1, y1) }, 0, 300)
     }
 
+    /**
+     * One finger: press and hold on the source so drag handles engage, then, as a
+     * continuation of the same stroke, move to the destination and lift.
+     */
     private suspend fun drag(from: Rect, to: Rect): ExecResult {
-        val path = Path().apply {
-            moveTo(from.centerX.toFloat(), from.centerY.toFloat())
-            lineTo(to.centerX.toFloat(), to.centerY.toFloat())
-        }
-        return gesture(path, 0, 900, willContinue = false, holdFirst = true)
+        val hold = GestureDescription.StrokeDescription(
+            Path().apply { moveTo(from.centerX.toFloat(), from.centerY.toFloat()) }, 0, 400, true,
+        )
+        val held = dispatch(hold)
+        if (!held.ok) return held
+        val move = hold.continueStroke(
+            Path().apply {
+                moveTo(from.centerX.toFloat(), from.centerY.toFloat())
+                lineTo(to.centerX.toFloat(), to.centerY.toFloat())
+            },
+            0, 700, false,
+        )
+        return dispatch(move)
     }
 
-    private suspend fun gesture(path: Path, start: Long, duration: Long, willContinue: Boolean = false, holdFirst: Boolean = false): ExecResult {
-        val builder = GestureDescription.Builder()
-        if (holdFirst) {
-            // A long-press before moving so drag handles pick it up.
-            val p = Path().apply { path.computeBounds(android.graphics.RectF().also { r -> moveTo(r.left, r.top) }, true) }
-            builder.addStroke(GestureDescription.StrokeDescription(p, 0, 400, true))
-            builder.addStroke(GestureDescription.StrokeDescription(path, 400, duration, willContinue))
-        } else {
-            builder.addStroke(GestureDescription.StrokeDescription(path, start, duration, willContinue))
-        }
+    private suspend fun gesture(path: Path, start: Long, duration: Long, willContinue: Boolean = false): ExecResult =
+        dispatch(GestureDescription.StrokeDescription(path, start, duration, willContinue))
+
+    private suspend fun dispatch(stroke: GestureDescription.StrokeDescription): ExecResult {
+        val description = GestureDescription.Builder().addStroke(stroke).build()
         return suspendCancellableCoroutine { cont ->
             val ok = service.dispatchGesture(
-                builder.build(),
+                description,
                 object : AccessibilityService.GestureResultCallback() {
                     override fun onCompleted(g: GestureDescription?) { if (cont.isActive) cont.resume(ExecResult.OK) }
                     override fun onCancelled(g: GestureDescription?) { if (cont.isActive) cont.resume(ExecResult.error("gesture cancelled")) }

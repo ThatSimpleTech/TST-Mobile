@@ -68,7 +68,9 @@ class AuditListener(
                     sessionId = sessionId, step = step, verb = PolicyEnforcer.verbKey(action), action = action.render(),
                     app = observation.app, targetLabel = target?.label, targetId = target?.resourceId,
                     tier = decision?.tier ?: Tier.SILENT, rule = decision?.rule ?: "terminal", gate = decision?.gate ?: Gate.PROCEED,
-                    approval = approval, status = status, detail = result?.detail?.ifBlank { null } ?: decision?.reason?.ifBlank { null },
+                    approval = approval, status = status,
+                    detail = (result?.detail?.ifBlank { null } ?: decision?.reason?.ifBlank { null })
+                        ?.let { com.thatsimpletech.assist.core.observe.ObservationFormatter.clean(it, 200) },
                     fingerprint = observation.fp,
                 )
             }
