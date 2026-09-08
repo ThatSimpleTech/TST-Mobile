@@ -230,6 +230,17 @@ class TaskRunnerTest {
     }
 
     @Test
+    fun tapAtPercentsHitsTheControlThere() {
+        val rig = Rig(
+            replies = listOf("tap @91,93", "done \"x\""),
+            screens = listOf(Screens.whatsapp()),
+            approvals = ScriptedApprovals(cards = listOf(true)),
+        )
+        assertEquals(Outcome.Done("x"), run(rig))
+        assertEquals(listOf(Action.Tap(4)), rig.executor.actions)
+    }
+
+    @Test
     fun spendCapPausesBeforeTheNextProviderCall() {
         val rig = Rig(replies = listOf("done \"should not run\""), screens = listOf(Screens.whatsapp()))
         val spend = SpendGuard { SpendSnapshot(exceeded = true, spentUsd = 1.0, capUsd = 0.50) }

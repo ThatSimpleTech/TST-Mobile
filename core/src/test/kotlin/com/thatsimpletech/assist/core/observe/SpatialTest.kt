@@ -15,7 +15,8 @@ class SpatialTest {
         label: String = "", window: Int = 0, clickable: Boolean = role == Role.BTN,
     ) = UiNode(
         identity = id, role = role, bounds = Rect(left, top, left + w, top + h),
-        label = label, clickable = clickable, editable = role == Role.EDIT, window = window,
+        label = label, clickable = clickable, editable = role == Role.EDIT,
+        scrollable = role == Role.LIST, window = window,
     )
 
     @Test
@@ -60,5 +61,32 @@ class SpatialTest {
         val node = UiNode("s", Role.BTN, Rect(0, 0, 10, 10), resourceId = "com.app:id/voice_note_btn")
         assertEquals("voice note btn", Spatial.shownLabel(node))
         assertFalse(Spatial.compact(n("list", Role.LIST, 0, 0, 1080, 2000), display))
+    }
+
+    @Test
+    fun parseAtReadsPercents() {
+        assertEquals(50 to 67, Spatial.parseAt("@50,67"))
+        assertEquals(50 to 67, Spatial.parseAt("50,67"))
+        assertEquals(80 to 92, Spatial.parseAt("@80, 92"))
+        assertNull(Spatial.parseAt("7"))
+        assertNull(Spatial.parseAt("@100,0"))
+    }
+
+    @Test
+    fun nearestHintPrefersTheSmallestContainingNode() {
+        val screen = Screen(
+            "app", "A", display,
+            nodes = listOf(
+                n("list", Role.LIST, 0, 200, 1080, 1900),
+                n("send", Role.BTN, 900, 2200, 180, 120, "Send"),
+                n("edit", Role.EDIT, 80, 2200, 800, 120, "box"),
+            ),
+        )
+        val obs = ObservationBuilder().observe(screen)
+        val send = obs.lines.first { it.node.label == "Send" }
+        val list = obs.lines.first { it.node.role == Role.LIST }
+        assertEquals(send.hint, Spatial.nearestHint(obs, 91, 93))
+        assertEquals(list.hint, Spatial.nearestHint(obs, 50, 67))
+        assertNull(Spatial.nearestHint(obs.copy(lines = emptyList()), 50, 50))
     }
 }

@@ -10,14 +10,14 @@ import kotlin.test.assertTrue
 class ActionParserTest {
     private val parser = ActionParser()
 
-    private fun ok(raw: String, known: Set<Int>? = null): Action {
-        val r = parser.parse(raw, known)
+    private fun ok(raw: String, known: Set<Int>? = null, at: ((Int, Int) -> Int?)? = null): Action {
+        val r = parser.parse(raw, known, at)
         assertIs<ParseResult.Ok>(r, "expected ok for '$raw' but got $r")
         return r.action
     }
 
-    private fun err(raw: String, known: Set<Int>? = null): String {
-        val r = parser.parse(raw, known)
+    private fun err(raw: String, known: Set<Int>? = null, at: ((Int, Int) -> Int?)? = null): String {
+        val r = parser.parse(raw, known, at)
         assertIs<ParseResult.Error>(r, "expected error for '$raw' but got $r")
         return r.reason
     }
@@ -168,6 +168,19 @@ class ActionParserTest {
         assertEquals(null, HintCodec.Numeric.decode("0"))
         assertEquals(null, HintCodec.Numeric.decode("3a"))
         assertEquals(12, HintCodec.Numeric.decode("12"))
+    }
+
+    @Test
+    fun atPercentsResolveToAHint() {
+        val at = { x: Int, y: Int -> if (x == 50 && y == 67) 4 else null }
+        val known = setOf(1, 2, 3, 4)
+        assertEquals(Action.Tap(4), ok("tap @50,67", known, at))
+        assertEquals(Action.Tap(4), ok("@50,67", known, at))
+        assertEquals(Action.Tap(4), ok("tap @50, 67", known, at))
+        assertEquals(Action.Long(4), ok("long @50,67", known, at))
+        assertEquals(Action.Type(4, "hi"), ok("type @50,67 \"hi\"", known, at))
+        assertTrue("no control at @1,1" in err("tap @1,1", known, at))
+        assertTrue("no control" in err("tap @50,67", known, at = null))
     }
 
     @Test

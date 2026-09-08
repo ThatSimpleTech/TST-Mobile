@@ -11,6 +11,7 @@ data class Rect(val left: Int, val top: Int, val right: Int, val bottom: Int) {
 
     fun contains(o: Rect): Boolean = o.left >= left && o.top >= top && o.right <= right && o.bottom <= bottom
     fun intersects(o: Rect): Boolean = o.left < right && o.right > left && o.top < bottom && o.bottom > top
+    fun contains(x: Int, y: Int): Boolean = x >= left && x < right && y >= top && y < bottom
 }
 
 /** The role words the observation shows. Short on purpose; every token costs. */

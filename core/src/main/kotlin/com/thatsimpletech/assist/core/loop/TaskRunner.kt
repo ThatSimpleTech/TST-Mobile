@@ -114,7 +114,7 @@ class TaskRunner(
             }
             val reply = planner.next(prompt)
             if (kill.killed) return end(Outcome.Stopped(KILLED))
-            val parsed = parser.parse(reply, obs.hints)
+            val parsed = parser.parse(reply, obs.hints) { x, y -> Spatial.nearestHint(obs, x, y) }
 
             if (parsed is ParseResult.Error) {
                 listener?.onStep(step, obs, reply, parsed, null, null)

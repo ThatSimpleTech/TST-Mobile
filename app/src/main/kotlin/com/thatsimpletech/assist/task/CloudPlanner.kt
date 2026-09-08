@@ -36,6 +36,8 @@ class CloudPlanner(
                     maxTokens = MAX_ACTION_TOKENS,
                     temperature = 0.0,
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: java.io.InterruptedIOException) {
                 lastError = e
                 return@repeat
@@ -82,7 +84,7 @@ class CloudPlanner(
     companion object {
         const val MAX_ACTION_TOKENS = 8192
         const val MAX_APPS_TOKENS = 60
-        const val SYSTEM_ACTION = "Reply with exactly one action line from the grammar, after any thinking. The person already confirmed the GOAL by tapping Run. Use @x,y percents to pick the right control. Keyboard keys are not in the list. After type, tap the button to the right of the focused edit (higher x, same y). Never done while that button is still the next step. The action line must appear in the message content. No prose."
+        const val SYSTEM_ACTION = "Reply with exactly one action line from the grammar, after any thinking. The person already confirmed the GOAL by tapping Run. A hint is the [number] on an observation line. `@x,y` is the same control by screen percent: `tap @80,92` taps whatever is there; a line that is only `@80,92` is a tap. Keyboard keys are not in the list. After type, tap the button to the right of the focused edit (higher x, same y). Never done while that button is still the next step. The action line must appear in the message content. No prose."
         const val SYSTEM_APPS = "Reply with one apps line. Labels must be from this allowlist."
     }
 }

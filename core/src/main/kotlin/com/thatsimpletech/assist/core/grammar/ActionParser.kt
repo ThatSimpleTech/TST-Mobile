@@ -2,6 +2,7 @@ package com.thatsimpletech.assist.core.grammar
 
 import com.thatsimpletech.assist.core.media.MediaCommand
 import com.thatsimpletech.assist.core.media.SpotifyCommand
+import com.thatsimpletech.assist.core.observe.Spatial
 
 sealed interface ParseResult {
     data class Ok(val action: Action) : ParseResult
@@ -19,8 +20,9 @@ class ActionParser(val codec: HintCodec = HintCodec.Numeric) {
      * @param raw the model's whole reply
      * @param known hints present in the current observation; when given, any hint outside
      *   it is refused here, before policy or execution
+     * @param at maps `@x,y` screen percents to a hint on the current observation
      */
-    fun parse(raw: String, known: Set<Int>? = null): ParseResult {
+    fun parse(raw: String, known: Set<Int>? = null, at: ((Int, Int) -> Int?)? = null): ParseResult {
         val line = firstLine(raw) ?: return ParseResult.Error("empty reply: answer with one action line")
         val tokens = try {
             tokenize(line)
@@ -30,42 +32,51 @@ class ActionParser(val codec: HintCodec = HintCodec.Numeric) {
         if (tokens.isEmpty()) return ParseResult.Error("empty reply: answer with one action line")
         val head = tokens.first()
         if (head.quoted) return ParseResult.Error("the line must start with a verb, not a quoted string")
-        val verb = Verb.of(head.text) ?: return ParseResult.Error("unknown verb '${head.text}'")
-        val args = tokens.drop(1)
-        val parsed = when (verb) {
-            Verb.TAP -> oneHint(args, verb) { Action.Tap(it) }
-            Verb.LONG -> oneHint(args, verb) { Action.Long(it) }
-            Verb.CLEAR -> oneHint(args, verb) { Action.Clear(it) }
-            Verb.TYPE -> parseType(args)
-            Verb.SCROLL -> parseScroll(args)
-            Verb.SWIPE -> parseSwipe(args)
-            Verb.DRAG -> parseDrag(args)
-            Verb.BACK -> bare(args, verb, Action.Back)
-            Verb.HOME -> bare(args, verb, Action.Home)
-            Verb.RECENTS -> bare(args, verb, Action.Recents)
-            Verb.MORE -> bare(args, verb, Action.More)
-            Verb.OPEN -> parseOpen(args)
-            Verb.NOTIF -> parseNotif(args)
-            Verb.SCREEN -> parseScreen(args)
-            Verb.WAIT -> parseWait(args)
-            Verb.DONE -> tail(args, verb) { Action.Done(it) }
-            Verb.ASK -> tail(args, verb) { Action.Ask(it) }
-            Verb.CALL -> parseCall(args)
-            Verb.TEXT -> parseText(args)
-            Verb.ALARM -> parseAlarm(args)
-            Verb.TIMER -> parseTimer(args)
-            Verb.EVENT -> parseEvent(args)
-            Verb.CONTACT -> parseContact(args)
-            Verb.NAVIGATE -> parseNavigate(args)
-            Verb.TORCH -> parseTorch(args)
-            Verb.DND -> parseDnd(args)
-            Verb.BRIGHTNESS -> parseBrightness(args)
-            Verb.VOLUME -> parseVolume(args)
-            Verb.MEDIA -> parseMedia(args)
-            Verb.WHATSAPP -> parseWhatsApp(args)
-            Verb.SPOTIFY -> parseSpotify(args)
-            Verb.GMAIL -> parseGmail(args)
-            Verb.QS -> bare(args, verb, Action.Qs)
+        val verb = Verb.of(head.text)
+        val parsed = if (verb == null) {
+            val taken = takeHint(tokens, at)
+            if (taken != null && taken.rest.isEmpty()) {
+                ParseResult.Ok(Action.Tap(taken.hint))
+            } else {
+                ParseResult.Error("unknown verb '${head.text}'")
+            }
+        } else {
+            val args = tokens.drop(1)
+            when (verb) {
+                Verb.TAP -> oneHint(args, verb, at) { Action.Tap(it) }
+                Verb.LONG -> oneHint(args, verb, at) { Action.Long(it) }
+                Verb.CLEAR -> oneHint(args, verb, at) { Action.Clear(it) }
+                Verb.TYPE -> parseType(args, at)
+                Verb.SCROLL -> parseScroll(args, at)
+                Verb.SWIPE -> parseSwipe(args, at)
+                Verb.DRAG -> parseDrag(args, at)
+                Verb.BACK -> bare(args, verb, Action.Back)
+                Verb.HOME -> bare(args, verb, Action.Home)
+                Verb.RECENTS -> bare(args, verb, Action.Recents)
+                Verb.MORE -> bare(args, verb, Action.More)
+                Verb.OPEN -> parseOpen(args)
+                Verb.NOTIF -> parseNotif(args)
+                Verb.SCREEN -> parseScreen(args)
+                Verb.WAIT -> parseWait(args)
+                Verb.DONE -> tail(args, verb) { Action.Done(it) }
+                Verb.ASK -> tail(args, verb) { Action.Ask(it) }
+                Verb.CALL -> parseCall(args)
+                Verb.TEXT -> parseText(args)
+                Verb.ALARM -> parseAlarm(args)
+                Verb.TIMER -> parseTimer(args)
+                Verb.EVENT -> parseEvent(args)
+                Verb.CONTACT -> parseContact(args)
+                Verb.NAVIGATE -> parseNavigate(args)
+                Verb.TORCH -> parseTorch(args)
+                Verb.DND -> parseDnd(args)
+                Verb.BRIGHTNESS -> parseBrightness(args)
+                Verb.VOLUME -> parseVolume(args)
+                Verb.MEDIA -> parseMedia(args)
+                Verb.WHATSAPP -> parseWhatsApp(args)
+                Verb.SPOTIFY -> parseSpotify(args)
+                Verb.GMAIL -> parseGmail(args)
+                Verb.QS -> bare(args, verb, Action.Qs)
+            }
         }
         if (parsed is ParseResult.Ok && known != null) {
             val missing = parsed.action.hints.firstOrNull { it !in known }
@@ -78,45 +89,53 @@ class ActionParser(val codec: HintCodec = HintCodec.Numeric) {
 
     // ---- verbs ----
 
-    private fun oneHint(args: List<Token>, verb: Verb, build: (Int) -> Action): ParseResult {
-        if (args.size != 1 || args[0].quoted) return ParseResult.Error("${verb.word} takes exactly one hint, like `${verb.word} 3`")
-        val hint = hint(args[0]) ?: return ParseResult.Error("'${args[0].text}' is not a hint")
-        return ParseResult.Ok(build(hint))
+    private fun oneHint(args: List<Token>, verb: Verb, at: ((Int, Int) -> Int?)?, build: (Int) -> Action): ParseResult {
+        val taken = takeHint(args, at) ?: return notAHint(args, verb)
+        if (taken.rest.isNotEmpty()) return ParseResult.Error("${verb.word} takes exactly one hint, like `${verb.word} 3` or `${verb.word} @80,92`")
+        return ParseResult.Ok(build(taken.hint))
     }
 
-    private fun parseType(args: List<Token>): ParseResult {
-        if (args.size != 2 || args[0].quoted || !args[1].quoted) {
-            return ParseResult.Error("type takes a hint and quoted text, like `type 1 \"hello\"`")
+    private fun parseType(args: List<Token>, at: ((Int, Int) -> Int?)?): ParseResult {
+        val taken = takeHint(args, at)
+        if (taken == null || taken.rest.size != 1 || !taken.rest[0].quoted) {
+            return ParseResult.Error("type takes a hint and quoted text, like `type 1 \"hello\"` or `type @40,90 \"hello\"`")
         }
-        val hint = hint(args[0]) ?: return ParseResult.Error("'${args[0].text}' is not a hint")
-        return ParseResult.Ok(Action.Type(hint, args[1].text))
+        return ParseResult.Ok(Action.Type(taken.hint, taken.rest[0].text))
     }
 
-    private fun parseScroll(args: List<Token>): ParseResult {
-        if (args.size != 2 || args.any { it.quoted }) return ParseResult.Error("scroll takes a hint and a direction, like `scroll 4 down`")
-        val hint = hint(args[0]) ?: return ParseResult.Error("'${args[0].text}' is not a hint")
-        val dir = Direction.of(args[1].text) ?: return ParseResult.Error("direction must be up, down, left or right")
-        return ParseResult.Ok(Action.Scroll(hint, dir))
-    }
-
-    private fun parseSwipe(args: List<Token>): ParseResult {
-        if (args.size != 2 || args.any { it.quoted }) return ParseResult.Error("swipe takes a hint or `screen`, then a direction, like `swipe screen up`")
-        val target: SwipeTarget = if (args[0].text.equals("screen", ignoreCase = true)) {
-            SwipeTarget.Screen
-        } else {
-            SwipeTarget.Hint(hint(args[0]) ?: return ParseResult.Error("'${args[0].text}' is not a hint"))
+    private fun parseScroll(args: List<Token>, at: ((Int, Int) -> Int?)?): ParseResult {
+        val taken = takeHint(args, at)
+        if (taken == null || taken.rest.size != 1 || taken.rest[0].quoted) {
+            return ParseResult.Error("scroll takes a hint and a direction, like `scroll 4 down`")
         }
-        val dir = Direction.of(args[1].text) ?: return ParseResult.Error("direction must be up, down, left or right")
-        return ParseResult.Ok(Action.Swipe(target, dir))
+        val dir = Direction.of(taken.rest[0].text) ?: return ParseResult.Error("direction must be up, down, left or right")
+        return ParseResult.Ok(Action.Scroll(taken.hint, dir))
     }
 
-    private fun parseDrag(args: List<Token>): ParseResult {
-        if (args.size != 3 || args.any { it.quoted } || !args[1].text.equals("to", ignoreCase = true)) {
-            return ParseResult.Error("drag takes two hints, like `drag 2 to 5`")
+    private fun parseSwipe(args: List<Token>, at: ((Int, Int) -> Int?)?): ParseResult {
+        if (args.size >= 2 && !args[0].quoted && args[0].text.equals("screen", ignoreCase = true)) {
+            val dir = Direction.of(args[1].text) ?: return ParseResult.Error("direction must be up, down, left or right")
+            if (args.size != 2 || args[1].quoted) return ParseResult.Error("swipe takes a hint or `screen`, then a direction, like `swipe screen up`")
+            return ParseResult.Ok(Action.Swipe(SwipeTarget.Screen, dir))
         }
-        val from = hint(args[0]) ?: return ParseResult.Error("'${args[0].text}' is not a hint")
-        val to = hint(args[2]) ?: return ParseResult.Error("'${args[2].text}' is not a hint")
-        return ParseResult.Ok(Action.Drag(from, to))
+        val taken = takeHint(args, at)
+        if (taken == null || taken.rest.size != 1 || taken.rest[0].quoted) {
+            return ParseResult.Error("swipe takes a hint or `screen`, then a direction, like `swipe screen up`")
+        }
+        val dir = Direction.of(taken.rest[0].text) ?: return ParseResult.Error("direction must be up, down, left or right")
+        return ParseResult.Ok(Action.Swipe(SwipeTarget.Hint(taken.hint), dir))
+    }
+
+    private fun parseDrag(args: List<Token>, at: ((Int, Int) -> Int?)?): ParseResult {
+        val from = takeHint(args, at)
+        if (from == null || from.rest.size < 2 || from.rest[0].quoted || !from.rest[0].text.equals("to", ignoreCase = true)) {
+            return ParseResult.Error("drag takes two hints, like `drag 2 to 5` or `drag @10,20 to @80,90`")
+        }
+        val to = takeHint(from.rest.drop(1), at)
+        if (to == null || to.rest.isNotEmpty()) {
+            return ParseResult.Error("drag takes two hints, like `drag 2 to 5` or `drag @10,20 to @80,90`")
+        }
+        return ParseResult.Ok(Action.Drag(from.hint, to.hint))
     }
 
     private fun bare(args: List<Token>, verb: Verb, action: Action): ParseResult =
@@ -310,6 +329,41 @@ class ActionParser(val codec: HintCodec = HintCodec.Numeric) {
     }
 
     private fun hint(t: Token): Int? = if (t.quoted) null else codec.decode(t.text)
+
+    private data class Taken(val hint: Int, val rest: List<Token>)
+
+    private fun takeHint(args: List<Token>, at: ((Int, Int) -> Int?)?): Taken? {
+        if (args.isEmpty() || args[0].quoted) return null
+        hint(args[0])?.let { return Taken(it, args.drop(1)) }
+        val (xy, n) = takeAt(args) ?: return null
+        val hint = at?.invoke(xy.first, xy.second) ?: return null
+        return Taken(hint, args.drop(n))
+    }
+
+    private fun takeAt(args: List<Token>): Pair<Pair<Int, Int>, Int>? {
+        if (args.isEmpty() || args[0].quoted) return null
+        Spatial.parseAt(args[0].text)?.let { return it to 1 }
+        if (args.size >= 2 && !args[1].quoted) {
+            Spatial.parseAt(args[0].text + args[1].text)?.let { return it to 2 }
+            Spatial.parseAt(args[0].text + "," + args[1].text)?.let { return it to 2 }
+        }
+        if (args.size >= 3 && !args[1].quoted && !args[2].quoted && args[1].text == ",") {
+            Spatial.parseAt(args[0].text + "," + args[2].text)?.let { return it to 3 }
+        }
+        return null
+    }
+
+    private fun notAHint(args: List<Token>, verb: Verb): ParseResult {
+        val shown = args.firstOrNull()?.text ?: ""
+        val at = takeAt(args)
+        return if (at != null) {
+            ParseResult.Error("no control at @${at.first.first},${at.first.second}")
+        } else if (shown.startsWith("@") || "," in shown) {
+            ParseResult.Error("'$shown' is a screen percent; write `${verb.word} @80,92` for the control at that point")
+        } else {
+            ParseResult.Error("'$shown' is not a hint")
+        }
+    }
 
     // ---- lexing ----
 

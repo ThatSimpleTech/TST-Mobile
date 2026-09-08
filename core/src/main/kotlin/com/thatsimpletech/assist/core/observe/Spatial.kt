@@ -48,6 +48,44 @@ object Spatial {
     fun isIme(node: UiNode, screen: Screen): Boolean =
         screen.windows.any { it.id == node.window && it.kind == WindowKind.IME }
 
+    /**
+     * `@50,67` or `50,67` — screen percents, 0..99. Null if the token is a hint number/letter.
+     */
+    fun parseAt(text: String): Pair<Int, Int>? {
+        val s = text.trim().removePrefix("@")
+        val m = AT.matchEntire(s) ?: return null
+        val x = m.groupValues[1].toInt()
+        val y = m.groupValues[2].toInt()
+        if (x > 99 || y > 99) return null
+        return x to y
+    }
+
+    /**
+     * Hint of the control at screen percents. Smallest node that contains the point
+     * wins (a Send icon over the conversation list). Else the nearest center within
+     * 15% of the display. Null when the observation is empty or the point is empty space.
+     */
+    fun nearestHint(obs: Observation, xPct: Int, yPct: Int): Int? {
+        if (obs.lines.isEmpty() || obs.display.width <= 0 || obs.display.height <= 0) return null
+        val x = obs.display.left + xPct * obs.display.width / 100
+        val y = obs.display.top + yPct * obs.display.height / 100
+        val hit = obs.lines.filter { it.node.bounds.contains(x, y) }
+            .minByOrNull { it.node.bounds.area }
+        if (hit != null) return hit.hint
+        val limit = (maxOf(obs.display.width, obs.display.height) * 15L / 100).let { it * it }
+        return obs.lines.minByOrNull { line ->
+            val dx = line.node.bounds.centerX - x
+            val dy = line.node.bounds.centerY - y
+            dx.toLong() * dx + dy.toLong() * dy
+        }?.takeIf { line ->
+            val dx = line.node.bounds.centerX - x
+            val dy = line.node.bounds.centerY - y
+            dx.toLong() * dx + dy.toLong() * dy <= limit
+        }?.hint
+    }
+
     private fun pct(value: Int, span: Int): Int =
         if (span <= 0) 0 else (value * 100 / span).coerceIn(0, 99)
+
+    private val AT = Regex("""^(\d{1,2})\s*,\s*(\d{1,2})$""")
 }

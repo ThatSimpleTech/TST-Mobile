@@ -47,8 +47,8 @@ class TaskForegroundService : Service() {
         job = scope.launch {
             val outcome = try {
                 TaskController.run(goal) { meter -> Graph.notifier.updateTask(goal, meter) }
-            } catch (e: CancellationException) {
-                throw e
+            } catch (_: CancellationException) {
+                "stopped: cancelled"
             } catch (e: Exception) {
                 "stopped: ${e.message ?: "error"}"
             }

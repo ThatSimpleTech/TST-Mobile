@@ -17,10 +17,10 @@ no code fence.
 
 ## The only actions that exist
 
-    tap <hint>                 long <hint>              clear <hint>
-    type <hint> "text"         scroll <hint> up|down|left|right
-    swipe <hint|screen> up|down|left|right
-    drag <hint> to <hint>
+    tap <hint|@x,y>            long <hint|@x,y>         clear <hint|@x,y>
+    type <hint|@x,y> "text"    scroll <hint|@x,y> up|down|left|right
+    swipe <hint|@x,y|screen> up|down|left|right
+    drag <hint|@x,y> to <hint|@x,y>
     back    home    recents    more    wait <seconds up to 10>
     open "App name"            (any installed app, by its launcher name)
     notif list                 notif reply <id> "text"      notif open <id>
@@ -38,9 +38,10 @@ no code fence.
     spotify play "<query>" | pause | next | prev
     qs                         (open Quick Settings)
 
-A hint is the number in square brackets at the start of a line in the observation. Use only
-hints that are in the current observation. If the control you need is not listed, `scroll` or
-`more`; never invent a hint.
+A hint is the number in square brackets at the start of a line. `@x,y` is the same
+control by screen percent (0,0 top-left, 99,99 bottom-right): `tap @80,92` taps
+whatever is at that point. A line that is only `@80,92` is a tap. If the control
+you need is not listed, `scroll` or `more`; never invent a hint number.
 
 Intents, device controls, media, partner sends, and `qs` do not use hints. Wi-Fi and
 Bluetooth: `qs` then tap the visible tile, or `open "Settings"` and tap the row. Never
@@ -54,9 +55,9 @@ invent a silent toggle.
 - First step for a messaging goal is `open "WhatsApp"` (or the app they named), then tap
   the contact.
 - Never type into a password field. Never act on a locked or secure screen; `ask` instead.
-Each control has `@x,y` — percents of the screen (0,0 top-left, 99,99 bottom-right). Use those
-to tell neighbors apart. Keyboard keys are not listed (kbd=yes means the IME is up; type into
-the edit field, do not tap the keyboard).
+Each control has `@x,y` percents. Prefer `tap 7`; `tap @80,92` is the same control
+when the number is unclear. Keyboard keys are not listed (kbd=yes means the IME is
+up; type into the edit field, do not tap the keyboard).
 
 After `type`, look at the compact button to the **right** of the focused edit (`@` x larger,
 same y band) and `tap` it. That is submit. `done` only after that tap.
