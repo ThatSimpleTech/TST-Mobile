@@ -41,7 +41,7 @@ The plan's diagram has three planners (Home tstd / Cloud key / Device) and a pho
 | Home as vLLM / OpenAI-compat on the box | Wired | Same `CloudPlanner`. Default home host is `llm.ezer-server.ts.net` / `ezer-chat` (TM-016). |
 | Home as tstd daemon (classifier, cards, audit upstream) | Client model only | `TstdClient` speaks the fixture protocol. **Not** attached to `TaskController`. Approvals do not round-trip to tstd. |
 | Device brain (LiteRT-LM) | Preset only | `Planners` returns a plain sentence: not built |
-| Voice (sherpa-onnx) | Partial | On-device SpeechRecognizer + TTS (TM-026). Talk also from QS tile, task notification, and launcher shortcut (TM-029). Keyword spotting / Whisper / Kokoro not built |
+| Voice (sherpa-onnx) | Partial | On-device SpeechRecognizer + TTS (TM-026). Talk from QS tile, notification, shortcut (TM-029). Assist gesture is a listen sheet over the current app (TM-030). Keyword spotting / Whisper / Kokoro not built |
 | Memory / embeddings | No | |
 | CHARTER.md schema | Filename reserved | Boundary refuses the name; no schema validator |
 | Instruction inspector UI | Partial | Settings is grants + provider (OpenRouter / LAN / custom URL + model) + goal, not a stack/token inspector |

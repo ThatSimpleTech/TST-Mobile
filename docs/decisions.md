@@ -227,6 +227,13 @@ No wake word in this slice. A Quick Settings **Talk** tile, a **Talk** action on
 
 Locked phone still does not auto-run. Audio still does not leave the device.
 
+## TM-030 (2026-09-08) Assist gesture is a listen sheet, not the settings screen
+
+Corner swipe / long-press power shows a compact **Listening…** panel over the current app and starts on-device dictation there. A heard goal runs through `GoalStart` (same foreground service as Run). The settings activity stays in the background.
+
+If microphone permission is off, the session still opens MainActivity so Android can ask. On-device speech missing, a miss, or Cancel dismisses the sheet. Keyguard: hear, do not run. Tile / notification / launcher shortcut still open the app (TM-029). Hey EZER is still later.
+
+
 
 
 

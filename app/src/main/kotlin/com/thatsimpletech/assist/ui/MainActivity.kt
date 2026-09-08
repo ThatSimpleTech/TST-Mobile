@@ -35,8 +35,8 @@ import com.thatsimpletech.assist.core.secrets.SecretStore
 import com.thatsimpletech.assist.core.secrets.SecretStoreLockedException
 import com.thatsimpletech.assist.kill.GlobalKillSwitch
 import com.thatsimpletech.assist.notif.AssistNotificationListener
+import com.thatsimpletech.assist.task.GoalStart
 import com.thatsimpletech.assist.task.LastRun
-import com.thatsimpletech.assist.task.TaskForegroundService
 import com.thatsimpletech.assist.voice.OnDeviceListen
 import java.io.File
 
@@ -306,27 +306,10 @@ class MainActivity : Activity() {
     }
 
     private fun startGoal() {
-        val g = goal.text.toString().trim()
-        if (g.isEmpty()) {
-            status.append("\nno goal")
-            return
-        }
-        if (locked()) {
-            status.append("\nunlock the phone to run")
-            if (RunPrefs.speak(this)) Graph.voice.speak("unlock the phone first")
-            return
-        }
         if (AssistAccessibilityService.instance == null) {
             status.append("\nScreen driver is off — intents (call, torch, alarm) still run; tap/type need Accessibility.")
         }
-        try {
-            startForegroundService(Intent(this, TaskForegroundService::class.java).putExtra(TaskForegroundService.EXTRA_GOAL, g))
-            LastRun.save(this, "started: $g")
-            status.append("\nstarted: $g — watch the EZER notification")
-        } catch (e: Exception) {
-            LastRun.save(this, "could not start: ${e.message}")
-            status.append("\ncould not start: ${e.message}")
-        }
+        status.append("\n${GoalStart.run(this, goal.text.toString())}")
     }
 
     private fun locked(): Boolean =
