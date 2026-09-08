@@ -9,10 +9,11 @@ The plan is [`docs/tst-assist-android.md`](docs/tst-assist-android.md). What the
 does today, checked against TST Desk's source, is [`docs/reality-check.md`](docs/reality-check.md).
 Decisions are in [`docs/decisions.md`](docs/decisions.md).
 
-**Status:** pre-alpha, private use. The pure-JVM core is built and tested (264 tests). The
-Android app is written against framework APIs and type-checked. Head of work is `grok/m1-closeout`
-(reality check + review closeout TM-010–015). The settings screen now names the model and the
-OpenAI-compatible endpoint (OpenRouter, LAN, or a custom server).
+**Status:** pre-alpha, private use. The pure-JVM core is built and tested. The Android app
+is written against framework APIs and type-checked. Head of work is `grok/m2` (M2 code:
+intents, meter chip, spend-cap pause, family host block, end-state validator, model-profile
+suite). Pixel 7 Pro verify is not done. The three-brain suite in CI is offline fixtures;
+live calls are opt-in and have not been claimed as run.
 
 ## How it drives the phone
 
@@ -57,9 +58,14 @@ or `sdk.dir` in `local.properties`). Without one, `:core` still builds and tests
 ## Building
 
 ```
-./gradlew :core:test                                   # pure JVM, no SDK needed
+./gradlew :core:test                                   # pure JVM, no SDK needed (includes offline suite)
 TST_ANDROID_CHECK=1 ./gradlew :tools:androidcheck:compileKotlin   # type-check app sources without an SDK
 ./gradlew :app:assembleDebug                           # needs the Android SDK
+
+# Live three-brain suite: not CI, spends keys, still through Endpoints.
+# Default brains: OpenRouter moonshotai/kimi-k3, OpenRouter z-ai/glm-5.2,
+# local loopback if present else "third brain not configured".
+OPENROUTER_API_KEY=… ./gradlew :core:test --tests com.thatsimpletech.assist.core.profile.ModelSuiteTest -Dassist.liveSuite=1
 ```
 
 ## License

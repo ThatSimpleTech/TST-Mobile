@@ -185,3 +185,11 @@ The path is `qs` (global Quick Settings, silent like `recents`) then `tap` a vis
 
 `TaskController` no longer bails when the accessibility service is off. An `EmptyObserver` supplies a blank tree (`app=""`, no nodes, fingerprint `"empty"`). Intent, device, partner, and media verbs parse without hints and execute. Hint verbs (`tap`/`type`/…) parse-fail against the empty hint set and stop after one repair. `qs` and tree gestures still need the screen driver and return `"screen driver is off; cannot open Quick Settings"` (or the same for taps). Overlay meter and gold highlight stay a11y-only; the notification chip still updates. Kill switch, approvals, Endpoints, and the planner are unchanged.
 
+## TM-023 (2026-09-08) `app/` source scan for sockets
+
+Reality-check §8 finding 5: `NoConnectionOutsideEndpointsTest` only walked `core/`. An `HttpURLConnection` in a future `app/` file would not fail CI.
+
+`AppNoConnectionOutsideEndpointsTest` walks `app/src/main/kotlin` for `OkHttpClient`, `java.net.Socket`, `HttpURLConnection`, and `URL.openConnection`. None are allowed in `app/`. App Functions, `startActivity`, and `CameraManager` are not sockets. Outbound HTTP still goes through `Graph.endpoints` (`core.net.Endpoints`).
+
+The same scan refuses silent radios and skipped composers: `WifiManager.setWifiEnabled`, `BluetoothAdapter.enable`, `BluetoothAdapter.disable`, `SmsManager`, `Intent.ACTION_CALL`, `EXTRA_SKIP_UI`. Q2/Q3 stayed dial-only / SMS draft, so those strings must not appear in `app/`. Alarms and timers set `EXTRA_SKIP_UI=false` in core `PhoneIntents`, not in `app/`.
+

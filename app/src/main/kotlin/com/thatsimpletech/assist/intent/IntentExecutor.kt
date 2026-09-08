@@ -10,7 +10,7 @@ import com.thatsimpletech.assist.core.loop.ExecResult
 
 /**
  * Copies an [IntentSpec] onto `android.content.Intent` and starts it. Always
- * [Intent.FLAG_ACTIVITY_NEW_TASK]. Never invents URIs; never `ACTION_CALL` / SmsManager.
+ * [Intent.FLAG_ACTIVITY_NEW_TASK]. Never invents URIs; never the direct-call intent or the SMS send API.
  */
 class IntentExecutor(private val context: Context) {
     fun start(spec: IntentSpec): ExecResult {

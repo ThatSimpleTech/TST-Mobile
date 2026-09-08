@@ -1,7 +1,7 @@
 # Reality check
 
-**Branch:** `grok/m1-closeout` (from `claude/tst-assist-android-taiz9d` @ `5a72109`)
-**Date:** 2026-09-07
+**Branch:** `grok/m2` (M2 code on this branch; M1 closeout was `grok/m1-closeout` @ `461c9cc`)
+**Date:** 2026-09-08
 **Against:** `docs/tst-assist-android.md` v2.0 (paste ends at §9.4 S1) and the copies of TST Desk that this repo actually contains.
 
 This is the document the previous session named and did not write. It is a claim ledger, not a brochure. A line that says **held** is held by a test in this tree. A line that says **code, untested on a phone** is implemented and CI-green and has never touched a Pixel. A line that says **not built** is a later milestone, even if a class exists.
@@ -17,7 +17,7 @@ TST Desk (`ThatSimpleTech/TST-Desk`) is a private repository. This check could n
 | No account | Only a provider key | No sign-up path. The only credential UI is a password field that writes to Keystore. | **held** (static) |
 | No server of ours | Bind loopback / Tailscale only | `BindRules` refuses unspecified (`0.0.0.0`, `::`). Loopback always; one Tailscale extra. No process in this repo binds a socket for inbound tstd attach. | **held for outbound bind rules**; the device-side observe/act socket is **not built** (TM-008) |
 | No subscription | Meter; device mode $0 | Meter prices from `config.yaml`. `device` preset is $0. Device *runtime* is not built, so the $0 path cannot run. | **held as data**; device mode is a preset, not a planner |
-| No telemetry | Every outbound host named in config | `Endpoints` is the only `OkHttpClient` factory in `core`. `NoConnectionOutsideEndpointsTest` source-scans core (not `app/`). App code goes through `Graph.endpoints`. | **held in core**; app is not scanned |
+| No telemetry | Every outbound host named in config | `Endpoints` is the only `OkHttpClient` factory in `core`. `NoConnectionOutsideEndpointsTest` source-scans core. `AppNoConnectionOutsideEndpointsTest` (TM-023) walks `app/src/main/kotlin` for the same socket markers plus silent Wi-Fi/BT and `ACTION_CALL` / SMS-send APIs. App code goes through `Graph.endpoints`. | **held** |
 | Key never touches disk in plaintext | Keystore + redactor | AES-256-GCM in Android Keystore; only IV+ciphertext in prefs. Redactor covers `sk-`, GitHub PATs, `AKIA`, PEM headers. The wrapping key is **not** `setUserAuthenticationRequired`, so the process can decrypt without a biometric. Plaintext exists in RAM and in the EditText until Save clears it. | **held for disk**; not a hardware-auth lock |
 | Agent cannot rewrite rules | Boundary refuses rules files | `RulesBoundary` refuses `ASSISTANT.md`, `CHARTER.md`, `policy.yaml`, `AGENTS.md`, `profiles/`, `rules/`, plus `..` and symlinks. Nothing in the task loop offers a write tool, so the boundary is currently unused by the runner. | **held as a gate**; no write tool exists to attack |
 | Screen / notification text is data | Delimited block, grammar only | `ObservationFormatter` quotes labels as one escaped token; injection suite proves a forged `OBS>>` / `GOAL:` inside a message does not become structure. Parser: first non-empty line, closed verb set, unknown hint refused. | **held** (254-test suite, including `InjectionSuiteTest`) |
@@ -99,7 +99,7 @@ This is a **client model**. It is not Home mode. Nothing in `TaskController` sen
 | Merge / un-draft PR #1 | Not done. This work is on `grok/m1-closeout`, not the Claude branch. |
 | Run on a phone | In progress. Debug APK sideloaded; accessibility restricted-settings unlocked. Provider picker is TM-015. |
 
-Core tests re-run here: **264 / 264 pass** (`./gradlew :core:test`, JDK 17). One Endpoints redirect test flaked on MockWebServer timeout and passed on retry.
+Core tests on `grok/m2`: **386 pass, 1 skipped** (`./gradlew :core:test`, JDK 17). The skip is `ModelSuiteTest.liveSuiteIsOptIn` (`-Dassist.liveSuite=1`). One Endpoints redirect test has flaked on MockWebServer timeout and passed on retry.
 
 ---
 
@@ -134,9 +134,9 @@ If desktop tstd has moved since these were pasted, the phone is a snapshot, not 
 
 4. **`TstdClient` is orphaned.** Home-as-tstd is a protocol toy. Do not ship a toggle that says "Home" and then talks OpenAI-compat to `home.tailnet.example` as if that were tstd.
 
-5. **No-telemetry scan does not cover `app/`.** An Android `HttpURLConnection` in a future file would not fail CI. Extend the scan or keep app code free of clients.
+5. **No-telemetry scan now covers `app/`.** `AppNoConnectionOutsideEndpointsTest` (TM-023) walks `app/src/main/kotlin`. Finding closed on `grok/m2`.
 
-6. **`GoalApps.infer` is a bag of words.** A goal that names no app now gets an empty set (TM-014), so every app-scoped action is a card until one is confirmed. Still weaker than a planner that emits the app set (M2).
+6. **`GoalApps.infer` is fallback only.** Production uses `Planner.planGoalApps` (TM-019). Infer still empty when the goal names no allowlisted label (TM-014).
 
 7. **Keystore wrapping key is unlocked to the process.** Matches "never plaintext on disk". Does not match a mental model of "unlock the phone to use the key" except when the OS invalidates the key. The `SecretStoreLockedException` path is mostly dead.
 
@@ -163,6 +163,13 @@ If desktop tstd has moved since these were pasted, the phone is a snapshot, not 
 
 ## 9. Milestone truth
 
+M2, as this repo can claim it on `grok/m2`:
+
+- Closed verbs for calls, texts, alarms, timers, calendar, contacts, navigation, flashlight, DND, brightness, volume, media, WhatsApp/Spotify/Gmail, and `qs`: **written**. Partner miss is an honest error, not tree-driving.
+- Spend cap → `Outcome.Paused`; day chip hydrates from `audit.model_calls`; planner-emitted goal apps; family-mode host block; end-state validator; model profiles + offline suite; `app/` socket scan: **written**.
+- Live three-brain suite: **opt-in**, not CI. Do not claim it ran.
+- Pixel 7 Pro column: **unverified**. CI green is not M2 done for P2/P4/direct APIs.
+
 M1, as this repo can claim it today:
 
 - Grammar, observation, policy, loop, injection, meter, audit, redactor, steering boundary, Endpoints, OpenAI-compat planner, tstd *client model*, Android observer/executor/approval/kill/keystore/settings: **written**.
@@ -171,7 +178,7 @@ M1, as this repo can claim it today:
 - On a Pixel: **never**.
 - P3 keyguard matrix, P7 banking, P8 FLAG_SECURE, C2 gestures on device, C3 twenty multi-step tasks, C7 login screen: **unverified**. Those are the M1 *verify* column, and they need the 7 Pro.
 
-M2+ (intents, meter chip in the overlay, model-profile suite, Home as tstd, Device brain, voice, vision, memory): **not this branch**.
+M2 code is on `grok/m2` (intents and direct APIs, live meter chip with day hydration, spend-cap pause, planner-emitted goal apps, family host block, end-state validator, model-profile suite, app socket scan). Pixel 7 Pro verify is still **unverified**. The three-brain suite in CI is the **offline fixtures**; live calls are opt-in (`-Dassist.liveSuite=1`) and are not claimed as having run. Home as tstd, Device brain, voice, vision, memory: **not this branch**. Do not invent plan §§10–17.
 
 ---
 
