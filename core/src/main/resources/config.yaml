@@ -26,6 +26,8 @@ credentials:
   openrouter:
     name: OpenRouter
     base_url: https://openrouter.ai/api/v1
+  ezer:
+    name: EZER
 
 presets:
   # ── tst-default, budget, local, vllm ──────────────────────────────
@@ -170,29 +172,33 @@ presets:
       max_output_tokens: 4096
 
   # ── home ──────────────────────────────────────────────────────────
-  # Your own tstd or vLLM over Tailscale (plan §3, Home mode). Replace base_url with your
-  # home box's tailnet address; the placeholder below is not a real host. Off box, so a
-  # slug is required. $0.00 on local models, or whatever your daemon routes to.
+  # EZER's box over Tailscale (plan §3). Default is the LiteLLM front on
+  # llm.ezer-server.ts.net serving ezer-chat. This is the OpenAI-compat
+  # home-direct path (TM-010), not tstd's WebSocket. Off box, so a slug
+  # is required. $0.00 — the box meters itself.
   home:
     brain:
-      slug: home-brain
-      base_url: http://home.tailnet.example:4000/v1
+      slug: ezer-chat
+      base_url: https://llm.ezer-server.ts.net/v1
+      credential: ezer
       input_price: 0.0
       output_price: 0.0
       cache_read_price: 0.0
       context_window: 32768
       max_output_tokens: 4096
     worker:
-      slug: home-brain
-      base_url: http://home.tailnet.example:4000/v1
+      slug: ezer-chat
+      base_url: https://llm.ezer-server.ts.net/v1
+      credential: ezer
       input_price: 0.0
       output_price: 0.0
       cache_read_price: 0.0
       context_window: 32768
       max_output_tokens: 4096
     validator:
-      slug: home-brain
-      base_url: http://home.tailnet.example:4000/v1
+      slug: ezer-chat
+      base_url: https://llm.ezer-server.ts.net/v1
+      credential: ezer
       input_price: 0.0
       output_price: 0.0
       cache_read_price: 0.0

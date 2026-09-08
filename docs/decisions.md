@@ -119,3 +119,10 @@ The screen now has three modes — OpenRouter, Local/LAN, Custom server — plus
 
 Cleartext at the OS layer is permitted so `http://192.168.x:11434/v1` reaches a box on the LAN. That is a BYOM exception to TM-006, which still stands for Home/tstd (prefer a MagicDNS name). The real door remains `Endpoints`: a host that is not on the active preset is refused before a socket opens. On-device LiteRT is still an honest refusal.
 
+## TM-016 (2026-09-07) The phone is EZER
+
+The working name was TST Assist. The product on the phone is EZER: default brain is the home box (`https://llm.ezer-server.ts.net/v1`, slug `ezer-chat`, credential `ezer`). OpenRouter and LAN Ollama remain BYOM fallbacks. The Android package stays `com.thatsimpletech.assist` so a sideloaded install does not drop Accessibility.
+
+This is the home-direct path (OpenAI-compat to LiteLLM/vLLM on the tailnet), not tstd's WebSocket (TM-010 still holds). Personas, Mem0, and tstd attach stay unbuilt.
+
+

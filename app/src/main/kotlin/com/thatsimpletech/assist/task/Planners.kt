@@ -44,9 +44,9 @@ object Planners {
     private fun mode(kind: EndpointKind) = when (kind) {
         EndpointKind.ON_DEVICE -> "device"
         else -> when (Graph.provider.mode) {
+            ProviderSettings.Mode.EZER -> "ezer"
             ProviderSettings.Mode.CLOUD -> "cloud-key"
             ProviderSettings.Mode.LOCAL -> "local"
-            ProviderSettings.Mode.CUSTOM -> "custom"
         }
     }
 }

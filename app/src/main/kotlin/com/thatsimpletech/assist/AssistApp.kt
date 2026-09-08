@@ -97,6 +97,11 @@ object Graph {
     /** Provider credential account for Cloud-key mode. */
     const val CREDENTIAL_ID = "openrouter"
 
+    /** Keystore account for the EZER home box. */
+    const val EZER_CREDENTIAL_ID = AssistConfig.EZER_CREDENTIAL
+
+    fun secretAccount(): String = SecretStore.account(provider.credentialId ?: CREDENTIAL_ID)
+
     fun init(application: Application) {
         app = application
         reloadProvider()

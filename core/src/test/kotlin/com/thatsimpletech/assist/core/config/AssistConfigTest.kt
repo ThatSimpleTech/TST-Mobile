@@ -87,7 +87,7 @@ class AssistConfigTest {
     fun allowedHostsAreTheActivePresetsEndpointsOnly() {
         val cfg = AssistConfig.loadDefault()
         assertEquals(setOf("openrouter.ai"), cfg.allowedHosts)
-        assertEquals(setOf("home.tailnet.example"), cfg.copy(preset = "home").allowedHosts)
+        assertEquals(setOf("llm.ezer-server.ts.net"), cfg.copy(preset = "home").allowedHosts)
         assertEquals(setOf("127.0.0.1"), cfg.copy(preset = "local").allowedHosts)
         assertEquals(emptySet(), cfg.copy(preset = "device").allowedHosts)
     }
@@ -192,5 +192,16 @@ class AssistConfigTest {
         assertEquals(setOf("openrouter.ai"), cfg.allowedHosts)
         assertEquals("openrouter", cfg.tier(TierName.BRAIN).credentialId)
         assertEquals(2.80, cfg.tier(TierName.BRAIN).inputPrice)
+    }
+
+    @Test
+    fun withHomePointsAtEzer() {
+        val cfg = AssistConfig.loadDefault().withHome("https://llm.ezer-server.ts.net/v1", "ezer-chat")
+        assertEquals("home", cfg.preset)
+        assertEquals("ezer-chat", cfg.tier(TierName.BRAIN).slug)
+        assertEquals("ezer", cfg.tier(TierName.BRAIN).credentialId)
+        assertEquals(setOf("llm.ezer-server.ts.net"), cfg.allowedHosts)
+        assertEquals(0.0, cfg.tier(TierName.BRAIN).inputPrice)
+        assertEquals(emptyList(), cfg.validate())
     }
 }

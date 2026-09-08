@@ -7,7 +7,7 @@
 **Scope:** An open-source, bring-your-own-model assistant that replaces Gemini as the default assistant on Android. Built on TST Desk's engine (tstd, the decision classifier, approval cards, audit, meter, steering, tst-cu-mcp) and held to the same promises. EZER is the family deployment of it: personas, V4 as the home daemon, shared memory. Pixel 7 Pro is the lab device, Pixel 11 Pro Fold the daily driver.
 **Relates to:** TST Desk (docs/tst-desk-spec.md, docs/architecture.md, tst-cu-mcp), voice-pipeline-v5, EZER_Memory_Architecture, TASKQUEUE.md on the box.
 
-"TST Assist" is a working name. Rename at will.
+"TST Assist" is a working name. The shipped product on the phone is **EZER** (TM-016).
 
 ---
 

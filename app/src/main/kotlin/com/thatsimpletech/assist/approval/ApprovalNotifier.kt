@@ -57,7 +57,7 @@ class ApprovalNotifier(private val context: Context) {
         )
         return Notification.Builder(context, CHANNEL_TASK)
             .setSmallIcon(Icon.createWithResource(context, android.R.drawable.ic_menu_manage))
-            .setContentTitle("TST Assist: $goal")
+            .setContentTitle("EZER: $goal")
             .setContentText(meter)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

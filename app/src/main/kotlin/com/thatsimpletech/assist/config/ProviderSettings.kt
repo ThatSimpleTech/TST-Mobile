@@ -7,47 +7,57 @@ import java.net.URI
 import java.net.URISyntaxException
 
 /**
- * What the person typed on the settings screen: which brain, which model, which
- * OpenAI-compatible URL. The shipped YAML is still the price book; this overlay is the
- * only way a phone picks a model without editing config.yaml.
+ * What the person typed on the settings screen. Default is EZER's home box
+ * (`llm.ezer-server.ts.net` / `ezer-chat`). OpenRouter and a LAN Ollama stay as
+ * BYOM fallbacks. The shipped YAML is the price book; this overlay is how the
+ * phone picks a brain without editing config.yaml.
  */
 data class ProviderSettings(
     val mode: Mode,
     val model: String,
     val baseUrl: String,
 ) {
-    enum class Mode { CLOUD, LOCAL, CUSTOM }
+    enum class Mode { EZER, CLOUD, LOCAL }
 
     val label: String get() = when (mode) {
+        Mode.EZER -> "EZER home"
         Mode.CLOUD -> "OpenRouter"
         Mode.LOCAL -> "Local / LAN"
-        Mode.CUSTOM -> "Custom server"
     }
 
-    /** OpenRouter refuses without a key. Local Ollama and most home boxes do not need one. */
+    /** OpenRouter refuses without a key. EZER and local do not require one. */
     val requiresKey: Boolean get() = mode == Mode.CLOUD
+
+    val credentialId: String? get() = when (mode) {
+        Mode.EZER -> AssistConfig.EZER_CREDENTIAL
+        Mode.CLOUD -> AssistConfig.DEFAULT_CREDENTIAL
+        Mode.LOCAL -> null
+    }
 
     fun resolvedUrl(): String = when (mode) {
         Mode.CLOUD -> OPENROUTER_URL
-        else -> normalizeUrl(baseUrl)
+        Mode.EZER -> if (baseUrl.isBlank()) DEFAULT_EZER_URL else normalizeUrl(baseUrl)
+        Mode.LOCAL -> normalizeUrl(baseUrl)
     }
 
     fun toConfig(shipped: AssistConfig): AssistConfig {
-        val slug = model.trim().ifEmpty { DEFAULT_CLOUD_MODEL }
-        val template = when (mode) {
-            Mode.CLOUD -> "tst-default"
-            Mode.LOCAL -> "local"
-            Mode.CUSTOM -> "home"
+        val slug = model.trim().ifEmpty {
+            if (mode == Mode.EZER) DEFAULT_EZER_MODEL else DEFAULT_CLOUD_MODEL
         }
-        val credential = if (mode == Mode.CLOUD) AssistConfig.DEFAULT_CREDENTIAL else null
-        return shipped.withUserEndpoint(resolvedUrl(), slug, credential, template)
+        return when (mode) {
+            Mode.EZER -> shipped.withHome(resolvedUrl(), slug, AssistConfig.EZER_CREDENTIAL)
+            Mode.CLOUD -> shipped.withUserEndpoint(
+                OPENROUTER_URL, slug, AssistConfig.DEFAULT_CREDENTIAL, "tst-default",
+            )
+            Mode.LOCAL -> shipped.withUserEndpoint(resolvedUrl(), slug, null, "local")
+        }
     }
 
     fun problem(): String? {
         if (model.trim().isEmpty()) return "set a model id"
         if (mode == Mode.CLOUD) return null
         val url = try {
-            normalizeUrl(baseUrl)
+            if (mode == Mode.EZER && baseUrl.isBlank()) DEFAULT_EZER_URL else normalizeUrl(baseUrl)
         } catch (e: IllegalArgumentException) {
             return e.message
         }
@@ -60,19 +70,27 @@ data class ProviderSettings(
         const val PREFS = "provider"
         const val OPENROUTER_URL = "https://openrouter.ai/api/v1"
         const val DEFAULT_CLOUD_MODEL = "moonshotai/kimi-k3"
+        const val DEFAULT_EZER_URL = "https://llm.ezer-server.ts.net/v1"
+        const val DEFAULT_EZER_MODEL = "ezer-chat"
         const val DEFAULT_LOCAL_URL = "http://192.168.1.10:11434/v1"
 
         fun load(ctx: Context): ProviderSettings {
             val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            val mode = try {
-                Mode.valueOf(p.getString("mode", Mode.CLOUD.name) ?: Mode.CLOUD.name)
-            } catch (_: Exception) {
-                Mode.CLOUD
+            val raw = p.getString("mode", Mode.EZER.name) ?: Mode.EZER.name
+            val mode = when (raw) {
+                "CUSTOM" -> Mode.EZER // previous "Custom server" becomes EZER home
+                else -> try {
+                    Mode.valueOf(raw)
+                } catch (_: Exception) {
+                    Mode.EZER
+                }
             }
+            val defaultModel = if (mode == Mode.EZER) DEFAULT_EZER_MODEL else DEFAULT_CLOUD_MODEL
+            val defaultUrl = if (mode == Mode.EZER) DEFAULT_EZER_URL else DEFAULT_LOCAL_URL
             return ProviderSettings(
                 mode = mode,
-                model = p.getString("model", DEFAULT_CLOUD_MODEL) ?: DEFAULT_CLOUD_MODEL,
-                baseUrl = p.getString("base_url", DEFAULT_LOCAL_URL) ?: DEFAULT_LOCAL_URL,
+                model = p.getString("model", defaultModel) ?: defaultModel,
+                baseUrl = p.getString("base_url", defaultUrl) ?: defaultUrl,
             )
         }
 

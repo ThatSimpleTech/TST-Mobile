@@ -119,6 +119,33 @@ data class AssistConfig(
         return copy(preset = name, presets = presets + (name to preset))
     }
 
+    /**
+     * Point every router tier at EZER's box: [baseUrl] + [slug], $0, credential [credentialId]
+     * (default `ezer`). The active preset becomes `home`. Pure; the caller persists it.
+     */
+    fun withHome(
+        baseUrl: String,
+        slug: String,
+        credentialId: String? = EZER_CREDENTIAL,
+        credentialName: String = "EZER",
+    ): AssistConfig {
+        val cred = credentialId?.trim()?.ifEmpty { null }
+        val tier = TierConfig(
+            slug = slug.trim(),
+            baseUrl = baseUrl.trim(),
+            inputPrice = 0.0,
+            outputPrice = 0.0,
+            cacheReadPrice = 0.0,
+            contextWindow = 32768,
+            maxOutputTokens = 4096,
+            credential = cred,
+        )
+        val creds = if (cred != null && cred !in credentials) {
+            credentials + (cred to CredentialConfig(name = credentialName))
+        } else credentials
+        return copy(preset = HOME_PRESET, presets = presets + (HOME_PRESET to Preset(tier, tier, tier)), credentials = creds)
+    }
+
     fun validate(): List<String> {
         val problems = ArrayList<String>()
         if (presets.isEmpty()) problems += "presets must not be empty"
@@ -138,12 +165,16 @@ data class AssistConfig(
 
     companion object {
         const val DEFAULT_PRESET = "tst-default"
+        const val HOME_PRESET = "home"
 
         /** Written by the settings screen; never shipped in config.yaml. */
         const val USER_PRESET = "user"
 
         /** The desktop's implicit key: an off-box tier with no credential uses it. */
         const val DEFAULT_CREDENTIAL = "openrouter"
+
+        /** Keystore account for the EZER home box (LiteLLM / vLLM on the tailnet). */
+        const val EZER_CREDENTIAL = "ezer"
 
         private val yaml = Yaml(configuration = YamlConfiguration(strictMode = true))
 

@@ -28,19 +28,19 @@ import com.thatsimpletech.assist.notif.AssistNotificationListener
 import com.thatsimpletech.assist.task.TaskForegroundService
 
 /**
- * The whole settings surface for now: status of the three grants, the provider (OpenRouter,
- * local/LAN, or a custom OpenAI-compatible server), a goal box, the kill switch, and the
- * policy self-check. Framework views only; a nicer surface is later work.
+ * The whole settings surface for now: status of the three grants, EZER home (default),
+ * OpenRouter and LAN fallbacks, a goal box, the kill switch, and the policy self-check.
+ * Framework views only; a nicer surface is later work.
  */
 class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var model: EditText
     private lateinit var url: EditText
     private lateinit var key: EditText
+    private lateinit var ezerBtn: Button
     private lateinit var cloudBtn: Button
     private lateinit var localBtn: Button
-    private lateinit var customBtn: Button
-    private var mode: ProviderSettings.Mode = ProviderSettings.Mode.CLOUD
+    private var mode: ProviderSettings.Mode = ProviderSettings.Mode.EZER
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,18 +57,18 @@ class MainActivity : Activity() {
         col.addView(button("Notification access") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) })
 
         col.addView(TextView(this).apply {
-            text = "First smoke: Accessibility on → pick a provider and model → Save provider → open WhatsApp → goal names WhatsApp → Run task. Approve type, then Send. Stop is on the task notification and the Quick Settings tile. Default assistant is optional (voice is not built)."
+            text = "EZER drives this phone. First smoke: Accessibility on → Save EZER (Tailscale MagicDNS, model ezer-chat) → open WhatsApp → goal names WhatsApp → Run task. Approve type, then Send. OpenRouter is a fallback when the box is down. Stop is on the task notification and the Quick Settings tile."
             textSize = 14f
             setPadding(0, (8 * dp).toInt(), 0, (12 * dp).toInt())
         })
 
-        col.addView(heading("Provider", dp))
+        col.addView(heading("Brain", dp))
+        ezerBtn = button("EZER home") { setMode(ProviderSettings.Mode.EZER) }
         cloudBtn = button("OpenRouter") { setMode(ProviderSettings.Mode.CLOUD) }
         localBtn = button("Local / LAN") { setMode(ProviderSettings.Mode.LOCAL) }
-        customBtn = button("Custom server") { setMode(ProviderSettings.Mode.CUSTOM) }
+        col.addView(ezerBtn)
         col.addView(cloudBtn)
         col.addView(localBtn)
-        col.addView(customBtn)
 
         model = EditText(this).apply {
             hint = "Model id"
@@ -88,8 +88,8 @@ class MainActivity : Activity() {
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
         }
         col.addView(key)
-        col.addView(button("Save provider") { saveProvider() })
-        col.addView(button("Forget key") { Graph.secrets.delete(SecretStore.account(Graph.CREDENTIAL_ID)); render() })
+        col.addView(button("Save brain") { saveProvider() })
+        col.addView(button("Forget key") { Graph.secrets.delete(Graph.secretAccount()); render() })
 
         val saved = ProviderSettings.load(this)
         mode = saved.mode
@@ -128,19 +128,24 @@ class MainActivity : Activity() {
 
     private fun setMode(next: ProviderSettings.Mode) {
         mode = next
+        ezerBtn.alpha = if (next == ProviderSettings.Mode.EZER) 1f else 0.45f
         cloudBtn.alpha = if (next == ProviderSettings.Mode.CLOUD) 1f else 0.45f
         localBtn.alpha = if (next == ProviderSettings.Mode.LOCAL) 1f else 0.45f
-        customBtn.alpha = if (next == ProviderSettings.Mode.CUSTOM) 1f else 0.45f
         url.visibility = if (next == ProviderSettings.Mode.CLOUD) View.GONE else View.VISIBLE
         model.hint = when (next) {
+            ProviderSettings.Mode.EZER -> "EZER model (e.g. ezer-chat)"
             ProviderSettings.Mode.CLOUD -> "OpenRouter model (e.g. moonshotai/kimi-k3)"
             ProviderSettings.Mode.LOCAL -> "Local model name (e.g. llama3.1)"
-            ProviderSettings.Mode.CUSTOM -> "Model id as your server lists it"
         }
         url.hint = when (next) {
+            ProviderSettings.Mode.EZER -> "EZER URL (e.g. https://llm.ezer-server.ts.net/v1)"
             ProviderSettings.Mode.LOCAL -> "Ollama/vLLM URL (e.g. http://192.168.1.10:11434/v1)"
-            ProviderSettings.Mode.CUSTOM -> "Your server URL (OpenAI-compatible …/v1)"
             else -> url.hint
+        }
+        key.hint = when (next) {
+            ProviderSettings.Mode.CLOUD -> "OpenRouter key (required)"
+            ProviderSettings.Mode.EZER -> "EZER / LiteLLM key (optional)"
+            ProviderSettings.Mode.LOCAL -> "API key (optional)"
         }
     }
 
@@ -151,18 +156,19 @@ class MainActivity : Activity() {
             status.append("\n$problem")
             return
         }
+        ProviderSettings.save(this, next)
+        Graph.reloadProvider()
         val v = key.text.toString()
         if (v.isNotBlank()) {
             try {
-                Graph.secrets.set(SecretStore.account(Graph.CREDENTIAL_ID), v)
+                val account = SecretStore.account(next.credentialId ?: Graph.CREDENTIAL_ID)
+                Graph.secrets.set(account, v)
             } catch (e: SecretStoreLockedException) {
                 status.append("\nKeystore is locked; unlock the phone and try again.")
                 return
             }
             key.setText("")
         }
-        ProviderSettings.save(this, next)
-        Graph.reloadProvider()
         render()
     }
 
@@ -171,7 +177,7 @@ class MainActivity : Activity() {
         val notif = AssistNotificationListener.instance != null
         val assistant = Settings.Secure.getString(contentResolver, "assistant")?.startsWith(packageName) == true
         val hasKey = try {
-            Graph.secrets.get(SecretStore.account(Graph.CREDENTIAL_ID)) != null
+            Graph.secrets.get(Graph.secretAccount()) != null
         } catch (e: SecretStoreLockedException) {
             false
         }
@@ -179,7 +185,7 @@ class MainActivity : Activity() {
         val brain = Graph.config.tier(TierName.BRAIN)
         val host = Endpoint.host(brain.baseUrl) ?: brain.baseUrl
         status.text = buildString {
-            append("TST Assist\n\n")
+            append("EZER\n\n")
             append(if (a11y) "✓ screen driver on\n" else "✗ screen driver off (no-accessibility mode: answers, notifications, intents)\n")
             append(if (assistant) "✓ default assistant\n" else "✗ not the default assistant\n")
             append(if (notif) "✓ notification access\n" else "✗ notification access off\n")
@@ -188,7 +194,7 @@ class MainActivity : Activity() {
                 when {
                     hasKey -> "✓ API key in Keystore\n"
                     settings.requiresKey -> "✗ no API key (OpenRouter will refuse)\n"
-                    else -> "○ no API key (ok for local/custom)\n"
+                    else -> "○ no API key (ok for EZER / local)\n"
                 },
             )
             append(if (GlobalKillSwitch.killed) "■ STOPPED by kill switch\n" else "● armed\n")

@@ -1,18 +1,19 @@
 # TST Mobile
 
-TST Assist: an open-source, bring-your-own-model assistant for Android, built on the
+EZER: the family assistant on Android. Open-source, bring-your-own-model, built on the
 [TST Desk](https://github.com/ThatSimpleTech/TST-Desk) engine and held to the same promises.
-No account, no server, no subscription, no telemetry, the key never touches disk in plaintext,
-and the agent cannot rewrite its own rules.
+Default brain is the EZER home box (`ezer-chat` on `llm.ezer-server.ts.net`). OpenRouter and
+a LAN Ollama stay as fallbacks.
+
+No account, no server of ours, no subscription, no telemetry, the key never touches disk in
+plaintext, and the agent cannot rewrite its own rules.
 
 The plan is [`docs/tst-assist-android.md`](docs/tst-assist-android.md). What the code actually
 does today, checked against TST Desk's source, is [`docs/reality-check.md`](docs/reality-check.md).
 Decisions are in [`docs/decisions.md`](docs/decisions.md).
 
-**Status:** pre-alpha, private use. The pure-JVM core is built and tested (264 tests). The
-Android app is written against framework APIs and type-checked. Head of work is `grok/m1-closeout`
-(reality check + review closeout TM-010–015). The settings screen now names the model and the
-OpenAI-compatible endpoint (OpenRouter, LAN, or a custom server).
+**Status:** pre-alpha, private use. Head of work is `grok/m1-closeout` (TM-010–016).
+The phone app is **EZER**. Settings default to the home box; OpenRouter is a fallback.
 
 ## How it drives the phone
 
