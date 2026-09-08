@@ -134,3 +134,14 @@ Adam accepted this table and the §15 defaults that constrain it:
 
 Partner misses are honest errors, not a fall-through to `tap`/`type` (that path is M6). Cards still show `plainWords()` payloads (TM-014). Intent, device, partner, and `qs` verbs are not app-scoped; a WhatsApp tree-`tap` still is. `qs` acts (keyguard refuses it) and is silent when unlocked via the `read-only` verb list, like `back` / `home` / `recents`.
 
+## TM-021 (2026-09-08) Visible composers only (dial, SMS draft, calendar UI insert)
+
+Calls, texts, and calendar events open a system composer. They do not complete the write themselves. Core holds the shapes as `IntentSpec` data (no `android.*`); app executors copy the fields and do not invent URIs.
+
+- **Dial-only.** `PhoneIntents.dial` is `ACTION_DIAL` + `tel:`. No `ACTION_CALL`, no `CALL_PHONE`, no `EXTRA_SKIP_UI`. The person taps Call on the driven phone.
+- **SMS draft.** `PhoneIntents.smsDraft` is `ACTION_SENDTO` + `smsto:` + `sms_body`. No `SmsManager`, no `SEND_SMS`, no `vnd.android-dir/mms-sms`. The person taps Send.
+- **Calendar UI insert.** `PhoneIntents.insertEvent` is `ACTION_INSERT` on `content://com.android.calendar/events`. No silent `ContentResolver.insert`.
+- Alarms and timers set `EXTRA_SKIP_UI=false` so Clock still shows its confirmation UI. Partner specs (WhatsApp / Spotify / Gmail) never carry `EXTRA_SKIP_UI`.
+
+These are the §15 Q2 / Q3 / Q4 defaults (and Q12: no second-card `ACTION_CALL` / `SmsManager` in M2).
+
