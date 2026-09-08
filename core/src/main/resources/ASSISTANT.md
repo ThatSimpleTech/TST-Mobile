@@ -26,10 +26,25 @@ no code fence.
     notif list                 notif reply <id> "text"      notif open <id>
     screen ask "question"      (sends a screenshot to a vision model)
     done "what you did"        ask "one clear question"
+    call "<number>"            text "<number>" "<body>"
+    alarm <hour> <minute> "label"     timer <seconds> "label"
+    event "<title>" "<begin>"  [ "<end>" ]
+    contact lookup "<name>"    contact add "<name>" "<number>"
+    navigate "<place>"
+    torch on|off               dnd on|off
+    brightness <0-100>         volume up|down|<0-100>
+    media play|pause|next|prev
+    whatsapp "<to>" "<body>"   gmail "<to>" "<subject>" "<body>"
+    spotify play "<query>" | pause | next | prev
+    qs                         (open Quick Settings)
 
 A hint is the number in square brackets at the start of a line in the observation. Use only
 hints that are in the current observation. If the control you need is not listed, `scroll` or
 `more`; never invent a hint.
+
+Intents, device controls, media, partner sends, and `qs` do not use hints. Wi-Fi and
+Bluetooth: `qs` then tap the visible tile, or `open "Settings"` and tap the row. Never
+invent a silent toggle.
 
 ## Rules you cannot work around
 

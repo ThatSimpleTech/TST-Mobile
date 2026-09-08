@@ -3,19 +3,22 @@ package com.thatsimpletech.assist.config
 import android.content.Context
 import com.thatsimpletech.assist.core.config.AssistConfig
 import com.thatsimpletech.assist.core.config.Endpoint
+import com.thatsimpletech.assist.core.grammar.HintCodec
+import com.thatsimpletech.assist.core.net.ProviderPolicy
 import java.net.URI
 import java.net.URISyntaxException
 
 /**
- * What the person typed on the settings screen. Default is EZER's home box
- * (`llm.ezer-server.ts.net` / `ezer-chat`). OpenRouter and a LAN Ollama stay as
- * BYOM fallbacks. The shipped YAML is the price book; this overlay is how the
- * phone picks a brain without editing config.yaml.
+ * What the person typed on the settings screen. Default is EZER's home box.
+ * Spend cap, hint codec, and family mode come from M2.
  */
 data class ProviderSettings(
     val mode: Mode,
     val model: String,
     val baseUrl: String,
+    val familyMode: Boolean = false,
+    val spendCapUsd: Double? = null,
+    val hintCodec: String = HintCodec.Numeric.word,
 ) {
     enum class Mode { EZER, CLOUD, LOCAL }
 
@@ -25,7 +28,6 @@ data class ProviderSettings(
         Mode.LOCAL -> "Local / LAN"
     }
 
-    /** OpenRouter refuses without a key. EZER and local do not require one. */
     val requiresKey: Boolean get() = mode == Mode.CLOUD
 
     val credentialId: String? get() = when (mode) {
@@ -33,6 +35,8 @@ data class ProviderSettings(
         Mode.CLOUD -> AssistConfig.DEFAULT_CREDENTIAL
         Mode.LOCAL -> null
     }
+
+    fun codec(): HintCodec = HintCodec.parse(hintCodec)
 
     fun resolvedUrl(): String = when (mode) {
         Mode.CLOUD -> OPENROUTER_URL
@@ -44,25 +48,29 @@ data class ProviderSettings(
         val slug = model.trim().ifEmpty {
             if (mode == Mode.EZER) DEFAULT_EZER_MODEL else DEFAULT_CLOUD_MODEL
         }
-        return when (mode) {
+        val next = when (mode) {
             Mode.EZER -> shipped.withHome(resolvedUrl(), slug, AssistConfig.EZER_CREDENTIAL)
             Mode.CLOUD -> shipped.withUserEndpoint(
                 OPENROUTER_URL, slug, AssistConfig.DEFAULT_CREDENTIAL, "tst-default",
             )
             Mode.LOCAL -> shipped.withUserEndpoint(resolvedUrl(), slug, null, "local")
         }
+        return next.copy(spendCapUsd = spendCapUsd)
     }
 
     fun problem(): String? {
         if (model.trim().isEmpty()) return "set a model id"
-        if (mode == Mode.CLOUD) return null
-        val url = try {
-            if (mode == Mode.EZER && baseUrl.isBlank()) DEFAULT_EZER_URL else normalizeUrl(baseUrl)
-        } catch (e: IllegalArgumentException) {
-            return e.message
+        if (spendCapUsd != null && spendCapUsd <= 0.0) return "spend cap must be > 0 (leave empty for none)"
+        if (mode != Mode.CLOUD) {
+            val url = try {
+                if (mode == Mode.EZER && baseUrl.isBlank()) DEFAULT_EZER_URL else normalizeUrl(baseUrl)
+            } catch (e: IllegalArgumentException) {
+                return e.message
+            }
+            if (!Endpoint.isNetwork(url)) return "base URL must be http or https"
+            if (Endpoint.host(url) == null) return "base URL has no host"
         }
-        if (!Endpoint.isNetwork(url)) return "base URL must be http or https"
-        if (Endpoint.host(url) == null) return "base URL has no host"
+        ProviderPolicy.familyBlockReason(resolvedUrl(), familyMode)?.let { return it }
         return null
     }
 
@@ -78,7 +86,7 @@ data class ProviderSettings(
             val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val raw = p.getString("mode", Mode.EZER.name) ?: Mode.EZER.name
             val mode = when (raw) {
-                "CUSTOM" -> Mode.EZER // previous "Custom server" becomes EZER home
+                "CUSTOM" -> Mode.EZER
                 else -> try {
                     Mode.valueOf(raw)
                 } catch (_: Exception) {
@@ -87,19 +95,27 @@ data class ProviderSettings(
             }
             val defaultModel = if (mode == Mode.EZER) DEFAULT_EZER_MODEL else DEFAULT_CLOUD_MODEL
             val defaultUrl = if (mode == Mode.EZER) DEFAULT_EZER_URL else DEFAULT_LOCAL_URL
+            val capRaw = p.getString("spend_cap_usd", null)?.trim().orEmpty()
             return ProviderSettings(
                 mode = mode,
                 model = p.getString("model", defaultModel) ?: defaultModel,
                 baseUrl = p.getString("base_url", defaultUrl) ?: defaultUrl,
+                familyMode = p.getBoolean("family_mode", false),
+                spendCapUsd = capRaw.toDoubleOrNull()?.takeIf { it > 0.0 },
+                hintCodec = HintCodec.parse(p.getString("hint_codec", HintCodec.Numeric.word) ?: HintCodec.Numeric.word).word,
             )
         }
 
         fun save(ctx: Context, s: ProviderSettings) {
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            val e = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString("mode", s.mode.name)
                 .putString("model", s.model.trim())
                 .putString("base_url", s.baseUrl.trim())
-                .apply()
+                .putBoolean("family_mode", s.familyMode)
+                .putString("hint_codec", HintCodec.parse(s.hintCodec).word)
+            if (s.spendCapUsd != null) e.putString("spend_cap_usd", s.spendCapUsd.toString())
+            else e.remove("spend_cap_usd")
+            e.apply()
         }
 
         fun normalizeUrl(raw: String): String {

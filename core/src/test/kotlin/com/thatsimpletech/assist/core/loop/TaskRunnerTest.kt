@@ -1,9 +1,14 @@
 package com.thatsimpletech.assist.core.loop
 
+import com.thatsimpletech.assist.core.config.AssistConfig
 import com.thatsimpletech.assist.core.grammar.Action
 import com.thatsimpletech.assist.core.grammar.ActionParser
 import com.thatsimpletech.assist.core.grammar.Direction
+import com.thatsimpletech.assist.core.grammar.HintCodec
 import com.thatsimpletech.assist.core.grammar.ParseResult
+import com.thatsimpletech.assist.core.meter.CostTracker
+import com.thatsimpletech.assist.core.net.ChatResult
+import com.thatsimpletech.assist.core.net.ProviderUsage
 import com.thatsimpletech.assist.core.observe.ObservationBuilder
 import com.thatsimpletech.assist.core.observe.ObservationFormatter
 import com.thatsimpletech.assist.core.observe.Role
@@ -28,7 +33,10 @@ class TaskRunnerTest {
     private val stepLimit = pack.stepBudget
 
     /** The verbs every `once` rule in policy.yaml names: what the one Tier 1 card covers. */
-    private val tier1Verbs = setOf("notif_open", "screen_ask", "tap", "long", "type", "clear", "drag", "swipe")
+    private val tier1Verbs = setOf(
+        "notif_open", "screen_ask", "tap", "long", "type", "clear", "drag", "swipe",
+        "alarm", "timer", "navigate", "media", "spotify", "contact_lookup",
+    )
 
     private class Rig(
         replies: List<String>,
@@ -44,15 +52,28 @@ class TaskRunnerTest {
         val prompts: List<String> get() = planner.prompts
     }
 
-    private fun runner(rig: Rig, budget: Int? = null) = TaskRunner(
+    private fun runner(
+        rig: Rig,
+        budget: Int? = null,
+        parser: ActionParser = ActionParser(),
+        spend: SpendGuard? = null,
+        validator: EndStateValidator? = null,
+    ) = TaskRunner(
         observer = rig.observer, planner = rig.planner, executor = rig.executor, approvals = rig.approvals,
-        kill = rig.kill, enforcer = enforcer, builder = ObservationBuilder(), parser = ActionParser(),
+        kill = rig.kill, enforcer = enforcer, builder = ObservationBuilder(), parser = parser,
         instructions = instructions, listener = rig.listener,
         budget = budget?.let { StepBudget(it) } ?: StepBudget.of(pack),
+        spend = spend, validator = validator,
     )
 
-    private fun run(rig: Rig, goalApps: Set<String> = whatsappOnly, budget: Int? = null): Outcome =
-        runBlocking { runner(rig, budget).run(goal, goalApps) }
+    private fun run(
+        rig: Rig,
+        goalApps: Set<String> = whatsappOnly,
+        budget: Int? = null,
+        parser: ActionParser = ActionParser(),
+        spend: SpendGuard? = null,
+        validator: EndStateValidator? = null,
+    ): Outcome = runBlocking { runner(rig, budget, parser, spend, validator).run(goal, goalApps) }
 
     private fun stopped(outcome: Outcome): String {
         assertIs<Outcome.Stopped>(outcome, "expected Stopped, got $outcome")
@@ -157,17 +178,199 @@ class TaskRunnerTest {
 
     @Test
     fun staleFingerprintRefusesExecutionAndReobservesWithoutCountingAsAModelFailure() {
-        val rig = Rig(replies = listOf("back", "back", "done \"x\""), screens = listOf(Screens.whatsapp()))
+        val rig = Rig(replies = listOf("scroll 1 down", "scroll 1 down", "done \"x\""), screens = listOf(Screens.whatsapp()))
         rig.observer.fingerprintOverrides += "0000stale"
         assertEquals(Outcome.Done("x"), run(rig))
 
         // Step 1 was planned, judged, then refused at the last check; step 2 executed.
-        assertEquals(listOf<Action>(Action.Back), rig.executor.actions)
-        assertTrue(rig.prompts[1].endsWith("STEP 2 of $stepLimit   LAST: back -> error screen changed, look again"), rig.prompts[1])
+        assertEquals(listOf(Action.Scroll(1, Direction.DOWN)), rig.executor.actions)
+        assertTrue(rig.prompts[1].endsWith("STEP 2 of $stepLimit   LAST: scroll 1 down -> error screen changed, look again"), rig.prompts[1])
         assertEquals(3, rig.observer.observeCalls)
         assertNotNull(rig.listener.steps[0].decision)
         assertNull(rig.listener.steps[0].result)
         assertEquals(ExecResult.OK, rig.listener.steps[1].result)
+    }
+
+    @Test
+    fun intentActionsExecuteEvenIfFingerprintChanged() {
+        val rig = Rig(
+            replies = listOf("call \"555\"", "done \"dialed\""),
+            screens = listOf(Screens.whatsapp()),
+            approvals = ScriptedApprovals(cards = listOf(true)),
+        )
+        rig.observer.fingerprintOverrides += "0000stale"
+        assertEquals(Outcome.Done("dialed"), run(rig))
+        assertEquals(listOf(Action.Call("555")), rig.executor.actions)
+    }
+
+    @Test
+    fun hintActionsStillRefuseStaleFingerprint() {
+        val rig = Rig(
+            replies = listOf("type 3 \"hi\"", "type 3 \"hi\"", "tap 4", "done \"x\""),
+            screens = listOf(Screens.whatsapp()),
+            approvals = ScriptedApprovals(cards = listOf(true)),
+        )
+        rig.observer.fingerprintOverrides += "0000stale"
+        assertEquals(Outcome.Done("x"), run(rig))
+        assertEquals(listOf(Action.Type(3, "hi"), Action.Tap(4)), rig.executor.actions)
+        assertTrue(rig.prompts[1].contains("LAST: type 3 \"hi\" -> error screen changed, look again"), rig.prompts[1])
+    }
+
+    @Test
+    fun staleHintIsNotExecuted() {
+        val rig = Rig(
+            replies = listOf("tap 4", "done \"x\""),
+            screens = listOf(Screens.whatsapp()),
+            approvals = ScriptedApprovals(cards = listOf(true)),
+        )
+        rig.observer.fingerprintOverrides += "0000stale"
+        assertEquals(Outcome.Done("x"), run(rig))
+        assertTrue(rig.executor.calls.isEmpty())
+        assertTrue(rig.prompts[1].contains("LAST: tap 4 -> error screen changed, look again"), rig.prompts[1])
+    }
+
+    @Test
+    fun spendCapPausesBeforeTheNextProviderCall() {
+        val rig = Rig(replies = listOf("done \"should not run\""), screens = listOf(Screens.whatsapp()))
+        val spend = SpendGuard { SpendSnapshot(exceeded = true, spentUsd = 1.0, capUsd = 0.50) }
+        val outcome = run(rig, spend = spend)
+        assertIs<Outcome.Paused>(outcome)
+        assertEquals(0.50, outcome.capUsd)
+        assertEquals(1.0, outcome.spentUsd)
+        assertTrue(rig.planner.prompts.isEmpty())
+    }
+
+    @Test
+    fun spendCapDoesNotLookLikeAsk() {
+        val rig = Rig(replies = listOf("ask \"The spend cap is reached.\""), screens = listOf(Screens.whatsapp()))
+        val outcome = run(rig, spend = SpendGuard { SpendSnapshot(exceeded = true, spentUsd = 1.0, capUsd = 0.50) })
+        assertIs<Outcome.Paused>(outcome)
+        assertEquals(listOf<Outcome>(outcome), rig.listener.ends)
+    }
+
+    @Test
+    fun pausedDoesNotExecute() {
+        val rig = Rig(replies = listOf("call \"555\""), screens = listOf(Screens.whatsapp()))
+        val outcome = run(rig, spend = SpendGuard { SpendSnapshot(exceeded = true, spentUsd = 2.0, capUsd = 1.0) })
+        assertIs<Outcome.Paused>(outcome)
+        assertTrue(rig.executor.calls.isEmpty())
+        assertEquals(0, rig.observer.observeCalls)
+    }
+
+    @Test
+    fun lettersCodecReachesThePromptAndTheParser() {
+        val rig = Rig(replies = listOf("tap c", "done \"x\""), screens = listOf(Screens.whatsapp()))
+        val outcome = run(rig, parser = ActionParser(HintCodec.Letters))
+        assertEquals(Outcome.Done("x"), outcome)
+        assertEquals(listOf(Action.Tap(3)), rig.executor.actions)
+        assertTrue(rig.prompts[0].contains("[c] edit"), rig.prompts[0])
+        assertTrue(rig.prompts[0].contains("[d] btn \"Send\""), rig.prompts[0])
+        assertTrue(!rig.prompts[0].contains("[3] edit"), rig.prompts[0])
+    }
+
+    @Test
+    fun doneWithoutValidatorIsStillDone() {
+        val rig = Rig(replies = listOf("done \"all good\""), screens = listOf(Screens.whatsapp()))
+        assertEquals(Outcome.Done("all good"), run(rig, validator = null))
+        assertEquals(listOf<Outcome>(Outcome.Done("all good")), rig.listener.ends)
+    }
+
+    @Test
+    fun donePlusFailedValidatorIsAsk() {
+        val validator = RecordingValidator(Validation.Fail("ended in com.google.android.gm, not a goal app"))
+        val rig = Rig(replies = listOf("done \"Replied to Maria\""), screens = listOf(Screens.gmail()))
+        val outcome = run(rig, validator = validator)
+        assertEquals(
+            Outcome.Ask("The end state does not match the goal: ended in com.google.android.gm, not a goal app"),
+            outcome,
+        )
+        assertEquals(1, validator.calls)
+        assertTrue(rig.executor.calls.isEmpty())
+        assertEquals(listOf<Outcome>(outcome), rig.listener.ends)
+    }
+
+    @Test
+    fun donePlusPassedValidatorIsDone() {
+        val validator = RecordingValidator(Validation.Pass)
+        val rig = Rig(replies = listOf("done \"Replied to Maria\""), screens = listOf(Screens.whatsapp()))
+        assertEquals(Outcome.Done("Replied to Maria"), run(rig, validator = validator))
+        assertEquals(1, validator.calls)
+        assertEquals(listOf<Outcome>(Outcome.Done("Replied to Maria")), rig.listener.ends)
+    }
+
+    @Test
+    fun validatorIsNotCalledOnAskOrStopped() {
+        val validator = RecordingValidator()
+        val ask = Rig(replies = listOf("ask \"Need the time?\""), screens = listOf(Screens.whatsapp()))
+        assertEquals(Outcome.Ask("Need the time?"), run(ask, validator = validator))
+        assertEquals(0, validator.calls)
+
+        val stopped = Rig(replies = listOf("Sure thing", "OK here goes"), screens = listOf(Screens.whatsapp()))
+        assertIs<Outcome.Stopped>(run(stopped, validator = validator))
+        assertEquals(0, validator.calls)
+    }
+
+    @Test
+    fun callSucceedsOnEmptyObservation() {
+        val rig = Rig(
+            replies = listOf("call \"555\"", "done \"dialed\""),
+            screens = listOf(Screens.empty()),
+            approvals = ScriptedApprovals(cards = listOf(true)),
+        )
+        assertEquals(Outcome.Done("dialed"), run(rig, goalApps = emptySet()))
+        assertEquals(listOf(Action.Call("555")), rig.executor.actions)
+        assertTrue(rig.listener.steps[0].observation.app.isEmpty())
+        assertTrue(rig.listener.steps[0].observation.hints.isEmpty())
+    }
+
+    @Test
+    fun tapOnEmptyObservationParseFails() {
+        val rig = Rig(
+            replies = listOf("tap 1", "tap 1"),
+            screens = listOf(Screens.empty()),
+        )
+        val reason = stopped(run(rig, goalApps = emptySet()))
+        assertTrue(reason.startsWith("could not parse"), reason)
+        assertTrue(rig.executor.calls.isEmpty())
+        assertIs<ParseResult.Error>(rig.listener.steps[0].parsed)
+    }
+
+    @Test
+    fun qsThenTapExecutes() {
+        val rig = Rig(
+            replies = listOf("qs", "tap 1", "done \"wifi\""),
+            screens = listOf(Screens.qsShade()),
+            approvals = ScriptedApprovals(cards = listOf(true)),
+        )
+        assertEquals(Outcome.Done("wifi"), run(rig))
+        assertEquals(listOf(Action.Qs, Action.Tap(1)), rig.executor.actions)
+        assertEquals("qs-tile", rig.listener.steps[1].decision?.rule)
+        assertTrue(rig.listener.steps[1].observation.onQs)
+        assertEquals("com.android.systemui", rig.listener.steps[1].observation.app)
+    }
+
+    @Test
+    fun validatorCallIsClassifierOnTheMeter() {
+        val meter = CostTracker()
+        val prices = AssistConfig.loadDefault().active.validator
+        val model = ModelEndStateValidator(
+            complete = { ChatResult("pass", ProviderUsage(1000, null, 10)) },
+            meter = meter,
+            prices = prices,
+            model = "v",
+        )
+        val rig = Rig(replies = listOf("done \"Replied to Maria\""), screens = listOf(Screens.whatsapp()))
+        assertEquals(Outcome.Done("Replied to Maria"), run(rig, validator = CompositeEndStateValidator(model)))
+        assertEquals(0.0, meter.sessionCost())
+        assertTrue(meter.classifierCost() > 0.0)
+        assertTrue(meter.costByTier().isEmpty())
+    }
+
+    @Test
+    fun planGoalAppsIsNotInvokedByTheRunner() {
+        val rig = Rig(replies = listOf("wait 1", "done \"x\""), screens = listOf(Screens.whatsapp()))
+        assertEquals(Outcome.Done("x"), run(rig))
+        assertEquals(0, rig.planner.planGoalAppsCalls)
     }
 
     // ---- M2: weak models ----

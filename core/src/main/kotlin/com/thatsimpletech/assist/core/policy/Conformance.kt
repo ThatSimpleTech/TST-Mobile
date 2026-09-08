@@ -27,6 +27,7 @@ data class CaseRequest(
     val secure: Boolean = false,
     @SerialName("open_label") val openLabel: String? = null,
     val target: CaseTarget? = null,
+    @SerialName("on_qs") val onQs: Boolean = false,
 )
 
 @Serializable
@@ -79,6 +80,7 @@ object Conformance {
             openAllowlisted = r.verb != VerbKey.OPEN || openTarget != null,
             appInGoal = app in r.goalApps,
             appSettings = app in pack.settingsPackages,
+            onQs = r.onQs,
         )
     }
 }

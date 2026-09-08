@@ -14,14 +14,25 @@ import com.thatsimpletech.assist.core.policy.Decision
 /** Test doubles for the loop ports. Everything is scripted or recorded; nothing is clever. */
 
 /** Replies in order; a script that runs dry is a test bug, not a model answer. */
-class ScriptedPlanner(private val replies: List<String>, private val onCall: (Int) -> Unit = {}) : Planner {
+class ScriptedPlanner(
+    private val replies: List<String>,
+    private val onCall: (Int) -> Unit = {},
+    private val goalApps: Set<String> = emptySet(),
+) : Planner {
     val prompts = ArrayList<String>()
+    var planGoalAppsCalls = 0
+        private set
 
     override suspend fun next(prompt: String): String {
         prompts += prompt
         val i = prompts.size - 1
         onCall(i)
         return replies.getOrNull(i) ?: error("planner script exhausted at call ${i + 1}")
+    }
+
+    override suspend fun planGoalApps(goal: String): Set<String> {
+        planGoalAppsCalls++
+        return goalApps
     }
 }
 
@@ -86,6 +97,17 @@ class ScriptedApprovals(private val taskGrant: Boolean = true, cards: List<Boole
 
 class FakeKill(override var killed: Boolean = false) : KillSwitch
 
+/** Scripted [EndStateValidator]; [calls] is how many times `done` reached it. */
+class RecordingValidator(private val result: Validation = Validation.Pass) : EndStateValidator {
+    var calls = 0
+        private set
+
+    override suspend fun validate(goal: String, last: Observation, goalApps: Set<String>): Validation {
+        calls++
+        return result
+    }
+}
+
 class RecordingListener : RunListener {
     data class Step(val step: Int, val observation: Observation, val reply: String, val parsed: ParseResult, val decision: Decision?, val result: ExecResult?)
 
@@ -131,6 +153,15 @@ object Screens {
             node("send", Role.BTN, "Send", top = 2200, left = 900, width = 180),
             node("attach", Role.BTN, "Attach", top = 2300),
         ),
+    )
+
+    /** No-a11y empty tree (TM-024). */
+    fun empty() = Screen(app = "", activity = "", display = Rect(0, 0, 1, 1), nodes = emptyList())
+
+    /** SystemUI shade with a Wi-Fi/Internet tile and [Screen.onQs] set. */
+    fun qsShade() = Screen(
+        app = "com.android.systemui", activity = "QuickSettings", display = display, onQs = true,
+        nodes = listOf(node("wifi", Role.BTN, "Internet", top = 200)),
     )
 
     /** [1] list, [2] btn Ok, in Gmail: outside a WhatsApp task's goal apps. */

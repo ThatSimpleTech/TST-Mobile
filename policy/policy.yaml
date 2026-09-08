@@ -9,7 +9,7 @@
 # Facts a rule can test: verb, acts (changes anything on the device), app_scoped (lands
 # inside one app: tap/long/type/clear/scroll/swipe/drag/open/screen_ask), keyguard, secure,
 # target_password, target_sensitive, app_allowlisted, open_allowlisted, app_in_goal,
-# app_settings.
+# app_settings, on_qs (the shade is the observed window; QS taps are not an app grant).
 version: 1
 
 approval_timeout_seconds: 45   # no answer is a deny
@@ -59,8 +59,12 @@ apps:
     sensitive_ids: [share]
   - package: com.android.settings
     label: Settings
-    aliases: [ajustes, configuración, configuracion]
+    aliases: [ajustes, configuración, configuracion, wifi, wi-fi, internet, bluetooth, bt]
     sensitive_ids: []
+  - package: com.google.android.contacts
+    label: Contacts
+    aliases: [people, contactos]
+    sensitive_ids: [delete, save]
 
 # Packages where any change is a settings change (Tier 2).
 settings_packages:
@@ -123,7 +127,8 @@ rules:
     reason: password fields are never typed into or acted on
 
   # ---- every time ----
-  # Sensitive / settings first: an outside-goal Send is still Send, not "open this app".
+  # Sensitive / settings / non-tree sends first: an outside-goal Send is still Send, not
+  # "open this app". Intent and device verbs are not app-scoped; their own rules fire here.
   - id: notif-reply
     when: { verb: [notif_reply] }
     tier: every
@@ -139,6 +144,34 @@ rules:
   - id: open-any-app
     when: { verb: [open] }
     tier: silent
+  - id: call-place
+    when: { verb: [call] }
+    tier: every
+    reason: placing a call
+  - id: text-send
+    when: { verb: [text] }
+    tier: every
+    reason: sending a text
+  - id: partner-send
+    when: { verb: [whatsapp, gmail] }
+    tier: every
+    reason: sending a message
+  - id: event-insert
+    when: { verb: [event] }
+    tier: every
+    reason: writing a calendar event
+  - id: contact-add
+    when: { verb: [contact_add] }
+    tier: every
+    reason: writing a contact
+  - id: device-control
+    when: { verb: [torch, dnd, brightness, volume] }
+    tier: every
+    reason: changing a device setting
+  - id: qs-tile
+    when: { verb: [tap, long], on_qs: true }
+    tier: every
+    reason: toggling a Quick Settings tile
   - id: outside-goal-apps
     when: { app_in_goal: false, app_scoped: true }
     tier: every
@@ -146,7 +179,7 @@ rules:
 
   # ---- silent ----
   - id: read-only
-    when: { verb: [scroll, back, home, recents, wait, more, notif_list, done, ask] }
+    when: { verb: [scroll, back, home, recents, wait, more, notif_list, done, ask, qs] }
     tier: silent
 
   # ---- once per task ----
@@ -157,6 +190,24 @@ rules:
     when: { verb: [screen_ask] }
     tier: once
     reason: a screenshot goes to the vision model
+  - id: alarm-set
+    when: { verb: [alarm] }
+    tier: once
+  - id: timer-set
+    when: { verb: [timer] }
+    tier: once
+  - id: navigate-start
+    when: { verb: [navigate] }
+    tier: once
+  - id: media-control
+    when: { verb: [media] }
+    tier: once
+  - id: partner-media
+    when: { verb: [spotify] }
+    tier: once
+  - id: contact-lookup
+    when: { verb: [contact_lookup] }
+    tier: once
   - id: in-app-control
     when: { verb: [tap, long, type, clear, drag, swipe] }
     tier: once

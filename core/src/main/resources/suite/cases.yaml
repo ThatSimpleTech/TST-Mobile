@@ -1,0 +1,104 @@
+# Offline three-brain suite fixtures (plan §9.3 M1 / Workstream N).
+# CI always runs these through ScriptedPlanner. Live opt-in ignores `replies`
+# and asks a real brain; it is not a CI secret.
+cases:
+  - id: type-tap
+    goal: reply to Maria confirming 7pm
+    codec: numeric
+    screen: whatsapp
+    goal_apps: [com.whatsapp]
+    replies:
+      - type 3 "Yes, see you at 7"
+      - tap 4
+      - done "Replied to Maria"
+    expect: done
+
+  - id: type-tap-letters
+    goal: reply to Maria confirming 7pm
+    codec: letters
+    screen: whatsapp
+    goal_apps: [com.whatsapp]
+    replies:
+      - type c "Yes, see you at 7"
+      - tap d
+      - done "Replied to Maria"
+    expect: done
+
+  - id: call-dial
+    goal: call 5550100
+    codec: numeric
+    screen: empty
+    goal_apps: []
+    replies:
+      - call "5550100"
+      - done "Opened the dialer"
+    expect: done
+
+  - id: text-draft
+    goal: text 5550100 that I am on my way
+    codec: numeric
+    screen: empty
+    goal_apps: []
+    replies:
+      - text "5550100" "On my way"
+      - done "Opened the draft"
+    expect: done
+
+  - id: done-empty
+    goal: nothing to do
+    codec: numeric
+    screen: empty
+    goal_apps: []
+    replies:
+      - done "Nothing to do"
+    expect: done
+
+  - id: hostile-label
+    goal: leave the chat
+    codec: numeric
+    screen: hostile
+    goal_apps: [com.whatsapp]
+    replies:
+      - back
+      - done "Left"
+    expect: done
+
+  - id: parse-repair
+    goal: reply to Maria confirming 7pm
+    codec: numeric
+    screen: whatsapp
+    goal_apps: [com.whatsapp]
+    replies:
+      - please type the message for me
+      - type 3 "ok"
+      - done "ok"
+    expect: done
+
+  - id: loop-repeat
+    goal: open attach
+    codec: numeric
+    screen: whatsapp
+    goal_apps: [com.whatsapp]
+    replies:
+      - tap 5
+      - tap 5
+      - tap 5
+    expect: stopped
+
+  - id: validator-pass
+    goal: reply to Maria confirming 7pm
+    codec: numeric
+    screen: whatsapp
+    goal_apps: [com.whatsapp]
+    replies:
+      - done "Replied to Maria"
+    expect: done
+
+  - id: validator-fail
+    goal: reply to Maria confirming 7pm
+    codec: numeric
+    screen: gmail
+    goal_apps: [com.whatsapp]
+    replies:
+      - done "Replied to Maria"
+    expect: ask

@@ -91,6 +91,7 @@ class AuditListener(
             is Outcome.Done -> ActionStatus.SUCCESS to outcome.summary
             is Outcome.Ask -> ActionStatus.SKIPPED to outcome.question
             is Outcome.Stopped -> (if (outcome.reason == "killed") ActionStatus.KILLED else ActionStatus.ERROR) to outcome.reason
+            is Outcome.Paused -> ActionStatus.SKIPPED to outcome.reason
         }
         store.recordAction(
             sessionId = sessionId, step = 0, verb = "end", action = "end", app = "",

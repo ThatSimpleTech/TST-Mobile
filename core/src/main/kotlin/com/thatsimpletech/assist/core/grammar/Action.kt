@@ -1,13 +1,19 @@
 package com.thatsimpletech.assist.core.grammar
 
+import com.thatsimpletech.assist.core.media.MediaCommand
+import com.thatsimpletech.assist.core.media.SpotifyCommand
+
 /**
- * The closed action grammar (plan §7). One action per turn, plain text, never JSON.
+ * The closed action grammar (plan §7, TM-016). One action per turn, plain text, never JSON.
  * Every verb here has an executor on the phone; nothing else executes, ever.
  */
 enum class Verb(val word: String) {
     TAP("tap"), LONG("long"), TYPE("type"), CLEAR("clear"), SCROLL("scroll"), SWIPE("swipe"),
     DRAG("drag"), BACK("back"), HOME("home"), RECENTS("recents"), OPEN("open"), NOTIF("notif"),
-    SCREEN("screen"), WAIT("wait"), DONE("done"), ASK("ask"), MORE("more");
+    SCREEN("screen"), WAIT("wait"), DONE("done"), ASK("ask"), MORE("more"),
+    CALL("call"), TEXT("text"), ALARM("alarm"), TIMER("timer"), EVENT("event"), CONTACT("contact"),
+    NAVIGATE("navigate"), TORCH("torch"), DND("dnd"), BRIGHTNESS("brightness"), VOLUME("volume"),
+    MEDIA("media"), WHATSAPP("whatsapp"), SPOTIFY("spotify"), GMAIL("gmail"), QS("qs");
 
     companion object {
         private val byWord = entries.associateBy { it.word }
@@ -22,6 +28,13 @@ enum class Direction(val word: String) {
         private val byWord = entries.associateBy { it.word }
         fun of(word: String): Direction? = byWord[word.lowercase()]
     }
+}
+
+/** Argument of `volume up` / `volume down` / `volume <0-100>`. Percent is clamped 0..100 at parse. */
+sealed interface VolumeChange {
+    data object Up : VolumeChange
+    data object Down : VolumeChange
+    data class Percent(val n: Int) : VolumeChange
 }
 
 sealed interface SwipeTarget {
@@ -170,7 +183,125 @@ sealed class Action(val verb: Verb) {
         override fun plainWords() = "Show more of the screen"
     }
 
+    data class Call(val number: String) : Action(Verb.CALL) {
+        override fun render() = "call ${Quote.q(number)}"
+        override fun plainWords() = "Place a call to ${Quote.q(number)}"
+    }
+
+    data class Text(val number: String, val body: String) : Action(Verb.TEXT) {
+        override fun render() = "text ${Quote.q(number)} ${Quote.q(body)}"
+        override fun plainWords() = "Send a text to ${Quote.q(number)}: ${Quote.q(body.take(80))}"
+    }
+
+    data class Alarm(val hour: Int, val minute: Int, val label: String) : Action(Verb.ALARM) {
+        override fun render() = "alarm $hour $minute ${Quote.q(label)}"
+        override fun plainWords() = "Set an alarm for $hour:$minute ${Quote.q(label)}"
+    }
+
+    data class Timer(val seconds: Int, val label: String) : Action(Verb.TIMER) {
+        override fun render() = "timer $seconds ${Quote.q(label)}"
+        override fun plainWords() = "Set a timer for $seconds seconds ${Quote.q(label)}"
+    }
+
+    data class Event(val title: String, val beginIso: String, val endIso: String? = null) : Action(Verb.EVENT) {
+        override fun render() = buildString {
+            append("event ").append(Quote.q(title)).append(' ').append(Quote.q(beginIso))
+            if (endIso != null) append(' ').append(Quote.q(endIso))
+        }
+        override fun plainWords() = buildString {
+            append("Create a calendar event ").append(Quote.q(title)).append(" at ").append(Quote.q(beginIso))
+            if (endIso != null) append(" until ").append(Quote.q(endIso))
+        }
+    }
+
+    data class ContactLookup(val query: String) : Action(Verb.CONTACT) {
+        override fun render() = "contact lookup ${Quote.q(query)}"
+        override fun plainWords() = "Look up contact ${Quote.q(query)}"
+    }
+
+    data class ContactAdd(val name: String, val number: String) : Action(Verb.CONTACT) {
+        override fun render() = "contact add ${Quote.q(name)} ${Quote.q(number)}"
+        override fun plainWords() = "Add contact ${Quote.q(name)} ${Quote.q(number)}"
+    }
+
+    data class Navigate(val query: String) : Action(Verb.NAVIGATE) {
+        override fun render() = "navigate ${Quote.q(query)}"
+        override fun plainWords() = "Navigate to ${Quote.q(query)}"
+    }
+
+    data class Torch(val on: Boolean) : Action(Verb.TORCH) {
+        override fun render() = "torch ${if (on) "on" else "off"}"
+        override fun plainWords() = "Turn the flashlight ${if (on) "on" else "off"}"
+    }
+
+    data class Dnd(val on: Boolean) : Action(Verb.DND) {
+        override fun render() = "dnd ${if (on) "on" else "off"}"
+        override fun plainWords() = "Turn do not disturb ${if (on) "on" else "off"}"
+    }
+
+    data class Brightness(val percent: Int) : Action(Verb.BRIGHTNESS) {
+        override fun render() = "brightness $percent"
+        override fun plainWords() = "Set brightness to $percent percent"
+    }
+
+    data class Volume(val change: VolumeChange) : Action(Verb.VOLUME) {
+        override fun render() = when (change) {
+            VolumeChange.Up -> "volume up"
+            VolumeChange.Down -> "volume down"
+            is VolumeChange.Percent -> "volume ${change.n}"
+        }
+        override fun plainWords() = when (change) {
+            VolumeChange.Up -> "Turn the volume up"
+            VolumeChange.Down -> "Turn the volume down"
+            is VolumeChange.Percent -> "Set volume to ${change.n} percent"
+        }
+    }
+
+    data class Media(val command: MediaCommand) : Action(Verb.MEDIA) {
+        override fun render() = "media ${mediaWord(command)}"
+        override fun plainWords() = "Media ${mediaWord(command)}"
+    }
+
+    data class WhatsApp(val to: String, val body: String) : Action(Verb.WHATSAPP) {
+        override fun render() = "whatsapp ${Quote.q(to)} ${Quote.q(body)}"
+        override fun plainWords() = "WhatsApp ${Quote.q(to)}: ${Quote.q(body.take(80))}"
+    }
+
+    data class Spotify(val command: SpotifyCommand) : Action(Verb.SPOTIFY) {
+        override fun render() = when (command) {
+            is SpotifyCommand.Play -> "spotify play ${Quote.q(command.query)}"
+            SpotifyCommand.Pause -> "spotify pause"
+            SpotifyCommand.Next -> "spotify next"
+            SpotifyCommand.Prev -> "spotify prev"
+        }
+        override fun plainWords() = when (command) {
+            is SpotifyCommand.Play -> "Spotify play ${Quote.q(command.query)}"
+            SpotifyCommand.Pause -> "Spotify pause"
+            SpotifyCommand.Next -> "Spotify next"
+            SpotifyCommand.Prev -> "Spotify previous"
+        }
+    }
+
+    data class Gmail(val to: String, val subject: String, val body: String) : Action(Verb.GMAIL) {
+        override fun render() = "gmail ${Quote.q(to)} ${Quote.q(subject)} ${Quote.q(body)}"
+        override fun plainWords() = "Email ${Quote.q(to)} subject ${Quote.q(subject)}: ${Quote.q(body.take(80))}"
+    }
+
+    data object Qs : Action(Verb.QS) {
+        override fun render() = "qs"
+        override fun plainWords() = "Open Quick Settings"
+    }
+
     companion object {
         const val MAX_WAIT_SECONDS = 10
+        const val MIN_TIMER_SECONDS = 1
+        const val MAX_TIMER_SECONDS = 86400
+
+        private fun mediaWord(command: MediaCommand) = when (command) {
+            MediaCommand.Play -> "play"
+            MediaCommand.Pause -> "pause"
+            MediaCommand.Next -> "next"
+            MediaCommand.Prev -> "prev"
+        }
     }
 }

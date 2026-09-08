@@ -9,7 +9,10 @@ sealed class Outcome {
     /** The model said `done`. */
     data class Done(val summary: String) : Outcome()
 
-    /** The model said `ask`; the turn ends and the person answers. */
+    /**
+     * The model said `ask`, or the end-state validator failed (TM-018 / Q6). The turn
+     * ends and the person answers. This is not success.
+     */
     data class Ask(val question: String) : Outcome()
 
     /**
@@ -17,6 +20,12 @@ sealed class Outcome {
      * consecutive model failure, a denied grant. [reason] is plain words for the person.
      */
     data class Stopped(val reason: String) : Outcome()
+
+    /**
+     * Session spend reached the cap (TM-017). No further provider call. Raising the cap
+     * and running again is a new task; there is no in-session resume in M2.
+     */
+    data class Paused(val reason: String, val spentUsd: Double, val capUsd: Double) : Outcome()
 }
 
 enum class ApprovalKind { TASK_GRANT, CARD }

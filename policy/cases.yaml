@@ -2,7 +2,7 @@
 # rule ids. Add a case for every rule you add, and one for every bug you fix.
 #
 # Request fields: verb (grammar verb key), app (package the screen belongs to), goal_apps,
-# keyguard, secure, open_label, target: { role, label, id, password }.
+# keyguard, secure, open_label, on_qs, target: { role, label, id, password }.
 cases:
   - name: tap Send in WhatsApp is Tier 2 by resource id
     request: { verb: tap, app: com.whatsapp, goal_apps: [com.whatsapp], target: { role: btn, label: "", id: "com.whatsapp:id/send" } }
@@ -115,3 +115,63 @@ cases:
   - name: a permission dialog is outside the goal set
     request: { verb: tap, app: com.google.android.permissioncontroller, goal_apps: [com.whatsapp], target: { role: btn, label: Allow } }
     expect: { tier: every, rule: outside-goal-apps }
+  - name: call is every time
+    request: { verb: call, app: com.google.android.dialer, goal_apps: [com.google.android.dialer] }
+    expect: { tier: every, rule: call-place }
+  - name: text is every time
+    request: { verb: text, app: com.google.android.apps.messaging, goal_apps: [com.google.android.apps.messaging] }
+    expect: { tier: every, rule: text-send }
+  - name: whatsapp send is every time
+    request: { verb: whatsapp, app: com.whatsapp, goal_apps: [com.whatsapp] }
+    expect: { tier: every, rule: partner-send }
+  - name: gmail send is every time
+    request: { verb: gmail, app: com.google.android.gm, goal_apps: [com.google.android.gm] }
+    expect: { tier: every, rule: partner-send }
+  - name: event insert is every time
+    request: { verb: event, app: com.google.android.calendar, goal_apps: [com.google.android.calendar] }
+    expect: { tier: every, rule: event-insert }
+  - name: contact add is every time
+    request: { verb: contact_add, app: com.google.android.contacts, goal_apps: [com.google.android.contacts] }
+    expect: { tier: every, rule: contact-add }
+  - name: torch is device-control
+    request: { verb: torch, app: com.whatsapp, goal_apps: [com.whatsapp] }
+    expect: { tier: every, rule: device-control }
+  - name: dnd is device-control
+    request: { verb: dnd, app: com.whatsapp, goal_apps: [com.whatsapp] }
+    expect: { tier: every, rule: device-control }
+  - name: brightness is device-control
+    request: { verb: brightness, app: com.whatsapp, goal_apps: [com.whatsapp] }
+    expect: { tier: every, rule: device-control }
+  - name: volume is device-control
+    request: { verb: volume, app: com.whatsapp, goal_apps: [com.whatsapp] }
+    expect: { tier: every, rule: device-control }
+  - name: qs open is silent
+    request: { verb: qs, app: com.whatsapp, goal_apps: [com.whatsapp] }
+    expect: { tier: silent, rule: read-only }
+  - name: qs tap is every time even when systemui is not allowlisted
+    request: { verb: tap, app: com.android.systemui, goal_apps: [com.whatsapp], on_qs: true, target: { role: switch, label: Wi-Fi } }
+    expect: { tier: every, rule: qs-tile }
+  - name: tap systemui off the shade is outside the goal set
+    request: { verb: tap, app: com.android.systemui, goal_apps: [com.whatsapp], on_qs: false, target: { role: btn, label: Ok } }
+    expect: { tier: every, rule: outside-goal-apps }
+  - name: alarm is once
+    request: { verb: alarm, app: com.google.android.deskclock, goal_apps: [com.google.android.deskclock] }
+    expect: { tier: once, rule: alarm-set }
+  - name: timer is once
+    request: { verb: timer, app: com.google.android.deskclock, goal_apps: [com.google.android.deskclock] }
+    expect: { tier: once, rule: timer-set }
+  - name: navigate is once
+    request: { verb: navigate, app: com.google.android.apps.maps, goal_apps: [com.google.android.apps.maps] }
+    expect: { tier: once, rule: navigate-start }
+  - name: media is once
+    request: { verb: media, app: com.spotify.music, goal_apps: [com.spotify.music] }
+    expect: { tier: once, rule: media-control }
+  - name: spotify play is once
+    request: { verb: spotify, app: com.spotify.music, goal_apps: [com.spotify.music] }
+    expect: { tier: once, rule: partner-media }
+  - name: contact lookup is once
+    request: { verb: contact_lookup, app: com.google.android.contacts, goal_apps: [com.google.android.contacts] }
+    expect: { tier: once, rule: contact-lookup }
+  - name: call on the keyguard is refused
+    request: { verb: call, app: com.android.systemui, goal_apps: [com.whatsapp], keyguard: true }
+    expect: { tier: refused, rule: keyguard-locked }

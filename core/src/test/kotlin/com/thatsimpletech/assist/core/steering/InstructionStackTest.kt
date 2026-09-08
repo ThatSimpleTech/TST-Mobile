@@ -1,5 +1,6 @@
 package com.thatsimpletech.assist.core.steering
 
+import com.thatsimpletech.assist.core.grammar.HintCodec
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
@@ -72,6 +73,23 @@ class InstructionStackTest {
         for (bad in listOf("../adam", "a/b", "..", ".hidden", "", "a\\b", "adam.md/")) {
             assertFailsWith<IllegalArgumentException>("profile '$bad'") { InstructionStack.resolve(root, bad, "t") }
         }
+    }
+
+    @Test
+    fun lettersProfileIsAPlainLabel() = withRoot { root ->
+        Files.writeString(root.resolve("ASSISTANT.md"), "the number in square brackets\n")
+        Files.createDirectory(root.resolve("profiles"))
+        Files.writeString(root.resolve("profiles/letters.md"), DefaultInstructions.lettersProfile())
+        val layers = InstructionStack.resolve(root, InstructionStack.LETTERS_PROFILE, "")
+        assertEquals(listOf("device", "profile", "task"), layers.map { it.name })
+        assertTrue((layers[1].path ?: "").replace('\\', '/').endsWith("profiles/letters.md"), layers[1].path)
+        assertTrue("Hints are letters (a, b, … aa), not numbers." in layers[1].text, layers[1].text)
+        val prompt = InstructionStack.deviceAndProfile(layers, "fallback")
+        assertTrue(prompt.startsWith("the number in square brackets"), prompt)
+        assertTrue("Hints are letters (a, b, … aa), not numbers." in prompt, prompt)
+        // "letters" is a label, not a path: resolve must not throw.
+        InstructionStack.resolve(root, "letters", "t")
+        assertEquals(HintCodec.parse("letters").word, InstructionStack.LETTERS_PROFILE)
     }
 
     @Test

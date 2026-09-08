@@ -25,6 +25,8 @@ data class Observation(
     val scrollHint: Int?,
     val display: Rect,
     val keyboard: Boolean = false,
+    /** True when the shade (Quick Settings) is the window the tree is reading. Policy fact, not shown to the model. */
+    val onQs: Boolean = false,
 ) {
     val hints: Set<Int> get() = lines.mapTo(HashSet()) { it.hint }
     val fp: String get() = Fingerprint.short(fingerprint)
@@ -102,6 +104,7 @@ class ObservationBuilder(
             scrollHint = shown.firstOrNull { it.scrollable }?.let { hints[it.identity] },
             display = screen.display,
             keyboard = screen.windows.any { it.kind == WindowKind.IME },
+            onQs = screen.onQs,
         )
     }
 

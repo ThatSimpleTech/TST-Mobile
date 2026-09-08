@@ -12,8 +12,10 @@ The plan is [`docs/tst-assist-android.md`](docs/tst-assist-android.md). What the
 does today, checked against TST Desk's source, is [`docs/reality-check.md`](docs/reality-check.md).
 Decisions are in [`docs/decisions.md`](docs/decisions.md).
 
-**Status:** pre-alpha, private use. Head of work is `grok/m1-closeout` (TM-010–016).
+**Status:** pre-alpha, private use. Head of work is `grok/m1-closeout` (TM-010–025).
 The phone app is **EZER**. Settings default to the home box; OpenRouter is a fallback.
+Pixel path (type, spatial, Auto, open-any-app) plus M2 (intents, meter chip, spend-cap
+pause, family host block, end-state validator, model-profile suite).
 
 ## How it drives the phone
 
@@ -58,9 +60,14 @@ or `sdk.dir` in `local.properties`). Without one, `:core` still builds and tests
 ## Building
 
 ```
-./gradlew :core:test                                   # pure JVM, no SDK needed
+./gradlew :core:test                                   # pure JVM, no SDK needed (includes offline suite)
 TST_ANDROID_CHECK=1 ./gradlew :tools:androidcheck:compileKotlin   # type-check app sources without an SDK
 ./gradlew :app:assembleDebug                           # needs the Android SDK
+
+# Live three-brain suite: not CI, spends keys, still through Endpoints.
+# Default brains: OpenRouter moonshotai/kimi-k3, OpenRouter z-ai/glm-5.2,
+# local loopback if present else "third brain not configured".
+OPENROUTER_API_KEY=… ./gradlew :core:test --tests com.thatsimpletech.assist.core.profile.ModelSuiteTest -Dassist.liveSuite=1
 ```
 
 ## License

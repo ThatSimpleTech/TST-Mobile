@@ -125,4 +125,77 @@ The working name was TST Assist. The product on the phone is EZER: default brain
 
 This is the home-direct path (OpenAI-compat to LiteLLM/vLLM on the tailnet), not tstd's WebSocket (TM-010 still holds). Personas, Mem0, and tstd attach stay unbuilt.
 
+## TM-016b (2026-09-08) Closed verbs for non-tree actions
+
+M2 non-tree work (calls, texts, alarms, timers, calendar, contacts, navigation, flashlight, DND, brightness, volume, media, WhatsApp/Spotify/Gmail, Quick Settings) enters the same closed grammar as tree driving: one new `Verb` / `Action` per line, quoted payloads, `render()` round-trips through `ActionParser`, empty `hints` so a node is not required. A generic `do "…"` is refused; unknown words stay `unknown verb`.
+
+Adam accepted this table and the §15 defaults that constrain it:
+
+- **Dial-only.** `call` prepares `ACTION_DIAL`. No `ACTION_CALL` in M2.
+- **SMS draft.** `text` prepares `ACTION_SENDTO`. No `SmsManager` in M2.
+- **Calendar UI insert.** `event` opens the insert UI. No silent `ContentResolver.insert`.
+- **Wi-Fi / Bluetooth.** `qs` then tap a visible tile (Tier 2 via `on_qs`), or `open "Settings"` and tap the row. No `wifi` / `bluetooth` verb and no silent adapter APIs. SystemUI is not allowlisted.
+- **Contacts** join the allowlist (`com.google.android.contacts`). `contact lookup` / `contact add` are the two forms of one verb, same pattern as `notif`.
+- **No media seek.** `media` / `spotify` are play, pause, next, prev.
+
+Partner misses are honest errors, not a fall-through to `tap`/`type` (that path is M6). Cards still show `plainWords()` payloads (TM-014). Intent, device, partner, and `qs` verbs are not app-scoped; a WhatsApp tree-`tap` still is. `qs` acts (keyguard refuses it) and is silent when unlocked via the `read-only` verb list, like `back` / `home` / `recents`.
+
+## TM-021 (2026-09-08) Visible composers only (dial, SMS draft, calendar UI insert)
+
+Calls, texts, and calendar events open a system composer. They do not complete the write themselves. Core holds the shapes as `IntentSpec` data (no `android.*`); app executors copy the fields and do not invent URIs.
+
+- **Dial-only.** `PhoneIntents.dial` is `ACTION_DIAL` + `tel:`. No `ACTION_CALL`, no `CALL_PHONE`, no `EXTRA_SKIP_UI`. The person taps Call on the driven phone.
+- **SMS draft.** `PhoneIntents.smsDraft` is `ACTION_SENDTO` + `smsto:` + `sms_body`. No `SmsManager`, no `SEND_SMS`, no `vnd.android-dir/mms-sms`. The person taps Send.
+- **Calendar UI insert.** `PhoneIntents.insertEvent` is `ACTION_INSERT` on `content://com.android.calendar/events`. No silent `ContentResolver.insert`.
+- Alarms and timers set `EXTRA_SKIP_UI=false` so Clock still shows its confirmation UI. Partner specs (WhatsApp / Spotify / Gmail) never carry `EXTRA_SKIP_UI`.
+
+These are the §15 Q2 / Q3 / Q4 defaults (and Q12: no second-card `ACTION_CALL` / `SmsManager` in M2).
+
+## TM-017 (2026-09-08) Spend cap is Outcome.Paused, loop-owned, session-scoped
+
+Hitting `AssistConfig.spendCapUsd` pauses the session: no further provider call, `Outcome.Paused`, chip and notification say so. It is not an `ask` line from the model. `CloudPlanner` used to synthesize `ask "The spend cap…"` which became `Outcome.Ask` and lied — the person did not get a brain question.
+
+The loop owns the pause. `SpendGuard` reads `CostTracker.sessionCost()` against the cap at the top of each step, before `planner.next`. Day spend is display-only. Classifier / validator-as-classifier calls already sit off `sessionCost()` (`CostTracker.record(..., isClassifier = true)`), so a validator ping cannot itself trip the cap. Raising the cap and running again is a new `TaskController.run`; there is no in-session resume in M2.
+
+## TM-019 (2026-09-08) Planner-emitted goal apps; infer is fallback only
+
+Production no longer uses `GoalApps.infer` as the only source of the intent lock. `Planner.planGoalApps` is one metered brain call before `TaskRunner.run` (not a loop step). The reply is one `apps` line; labels and packages are intersected with the allowlist; invented names are dropped, never launched. Empty remains valid (TM-014: the first app-scoped tree action is a card). The whole allowlist is never the default.
+
+When the planner returns empty (`apps none`, prose, HTTP failure), `GoalApps.infer` is the fallback (Q8). Infer itself stays empty when the goal names no allowlisted label.
+
+## TM-018 (2026-09-08) End-state validator; fail is not Done
+
+After `done`, a validator compares the last observation to the goal. Deterministic gates always run (wrong app, secure screen; empty no-a11y observations pass). A model check on the validator tier is optional, fail-closed on garbage, and recorded `isClassifier = true` so it cannot trip the spend cap. Per-step calls stay brain-only; there is no three-tier-per-step router.
+
+A failed validator is not `Outcome.Done`. Q6 maps fail to `Outcome.Ask` with the reason so the person can confirm or re-run. This overrides D4 (`Outcome.Stopped`). A null validator on the runner keeps today's `Outcome.Done`.
+
+## TM-025 (2026-09-08) Day meter hydrates from audit.model_calls
+
+A new `CostTracker` per `TaskController.run` used to make `dayCost == sessionCost`. Day spend is display-only (Q7: the pause cap is session). Before the first `record` of a session, `CostTracker.seedDayCost` takes `AuditStore.daySpend`: the sum of non-classifier `model_calls` whose local calendar day matches now. This session is not in the query yet, so it is not double-counted. Overlay and the persistent task notification both show `MeterText.chip` (turn, session, day, by tier, remaining). On `Outcome.Paused` the last chip includes `PAUSED`. The gold tap highlight stays on `OverlayCard`; the meter is a separate untouchable overlay.
+
+## TM-020 (2026-09-08) Chinese cloud hosts blocked in family mode; OpenRouter slugs are not endpoints
+
+“Chinese cloud endpoints” (plan §9.3 M4) are **hosts**, not OpenRouter slugs. The shipped `tst-default` brain is `moonshotai/kimi-k3` on `openrouter.ai`; treating the slug as Chinese would empty the default list and desync TST Desk.
+
+`ProviderPolicy` holds a closed host blocklist (`api.deepseek.com`, `api.moonshot.cn`, `api.moonshot.ai`, DashScope, BigModel, MiniMax, Qianfan, Hunyuan, StepFun, Lingyi, Spark, SenseNova). `openrouter.ai` is not on it. Classification is `Endpoint.host` (a URI parse); nothing resolves DNS.
+
+Family mode **on**: a blocked host is refused even if Custom names it. Settings Save and `Planners.forConfig` say `"that host is blocked in family mode"`. `Graph.reloadProvider` will not put that host on `Endpoints`. Family mode **off** (BYOM): any `base_url` may be typed; `Endpoints` still allowlists only that host (TM-015). Device and loopback stay allowed. The default picker is OpenRouter / Local / LAN / Custom — no blocked-host chip, and Device stays an honest refusal (TM-013).
+
+## TM-022 (2026-09-08) QS-visible Wi-Fi/Bluetooth only; Settings panel is the fallback
+
+There is no silent Wi-Fi or Bluetooth toggle in M2. No `WifiManager.setWifiEnabled`, no `BluetoothAdapter.enable/disable`, no `CHANGE_WIFI_STATE` / `BLUETOOTH_*` permissions, no `wifi` / `bluetooth` verb.
+
+The path is `qs` (global Quick Settings, silent like `recents`) then `tap` a visible tile. That tap is Tier 2 via the `on_qs` fact (`qs-tile`), even though SystemUI is not allowlisted. Shade detection prefers false negatives: a miss is `app-not-allowlisted`. If the tile is not in the tree, the fallback is `open "Settings"` (or `open "Wi-Fi"` / `open "Bluetooth"`, which fire `ACTION_WIFI_SETTINGS` / `ACTION_BLUETOOTH_SETTINGS`) and tap the row — already `settings-change`. Stage 2/3 shell toggles stay out.
+
+## TM-024 (2026-09-08) Intent and direct-API goals may run with accessibility off
+
+`TaskController` no longer bails when the accessibility service is off. An `EmptyObserver` supplies a blank tree (`app=""`, no nodes, fingerprint `"empty"`). Intent, device, partner, and media verbs parse without hints and execute. Hint verbs (`tap`/`type`/…) parse-fail against the empty hint set and stop after one repair. `qs` and tree gestures still need the screen driver and return `"screen driver is off; cannot open Quick Settings"` (or the same for taps). Overlay meter and gold highlight stay a11y-only; the notification chip still updates. Kill switch, approvals, Endpoints, and the planner are unchanged.
+
+## TM-023 (2026-09-08) `app/` source scan for sockets
+
+Reality-check §8 finding 5: `NoConnectionOutsideEndpointsTest` only walked `core/`. An `HttpURLConnection` in a future `app/` file would not fail CI.
+
+`AppNoConnectionOutsideEndpointsTest` walks `app/src/main/kotlin` for `OkHttpClient`, `java.net.Socket`, `HttpURLConnection`, and `URL.openConnection`. None are allowed in `app/`. App Functions, `startActivity`, and `CameraManager` are not sockets. Outbound HTTP still goes through `Graph.endpoints` (`core.net.Endpoints`).
+
+The same scan refuses silent radios and skipped composers: `WifiManager.setWifiEnabled`, `BluetoothAdapter.enable`, `BluetoothAdapter.disable`, `SmsManager`, `Intent.ACTION_CALL`, `EXTRA_SKIP_UI`. Q2/Q3 stayed dial-only / SMS draft, so those strings must not appear in `app/`. Alarms and timers set `EXTRA_SKIP_UI=false` in core `PhoneIntents`, not in `app/`.
 

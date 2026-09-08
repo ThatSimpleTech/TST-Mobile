@@ -57,6 +57,9 @@ class CostTracker(
     private var turn = ArrayList<CallRecord>()
     private val classifierCalls = ArrayList<CallRecord>()
     private val listeners = ArrayList<(CallRecord) -> Unit>()
+    /** Prior sessions' spend for the local day this tracker was seeded; 0 if never seeded. */
+    private var seededDayCost: Double = 0.0
+    private var seededDay: LocalDate? = null
 
     /** Every main-loop call this session, in order. Classifier calls are in [classifierCalls]. */
     val calls: List<CallRecord> get() = all
@@ -104,10 +107,21 @@ class CostTracker(
     fun sessionTokens(): Int = all.sumOf { it.tokens }
     fun classifierCost(): Double = sum(classifierCalls)
 
+    /**
+     * Hydrate [dayCost] from prior sessions (TM-025). Call before the first [record] of this
+     * session so this session is not double-counted. The seed applies only on the local date
+     * it was taken; after midnight it drops, same as in-session rows from yesterday.
+     */
+    fun seedDayCost(usd: Double) {
+        seededDayCost = Cost.round6(usd)
+        seededDay = dateOf(clock())
+    }
+
     /** Spend on calls whose local date, in this tracker's zone, is the clock's today. */
     fun dayCost(): Double {
         val today = dateOf(clock())
-        return sum(all.filter { dateOf(it.timestamp) == today })
+        val seed = if (seededDay == today) seededDayCost else 0.0
+        return Cost.round6(seed + all.filter { dateOf(it.timestamp) == today }.sumOf { it.cost.total })
     }
 
     fun dayTokens(): Int {
