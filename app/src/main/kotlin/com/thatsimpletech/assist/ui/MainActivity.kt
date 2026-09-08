@@ -73,11 +73,12 @@ class MainActivity : Activity() {
     private var listen: OnDeviceListen? = null
     private var pendingAssistListen = false
     private var runWhenHeard = false
+    private var windowResumed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         title = "EZER ${BuildConfig.VERSION_NAME}"
-        pendingAssistListen = intent.getBooleanExtra(EXTRA_FROM_ASSIST, false)
+        pendingAssistListen = wantsListen(intent)
         val dp = resources.displayMetrics.density
         val col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -215,8 +216,21 @@ class MainActivity : Activity() {
         if (needed.isNotEmpty()) requestPermissions(needed.toTypedArray(), REQ_START)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (wantsListen(intent)) {
+            pendingAssistListen = true
+            if (windowResumed) {
+                pendingAssistListen = false
+                onTalk(runWhenHeard = true)
+            }
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        windowResumed = true
         render()
         if (pendingAssistListen) {
             pendingAssistListen = false
@@ -225,8 +239,11 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
-        listen?.stop()
-        if (::talkBtn.isInitialized) talkBtn.text = "Talk"
+        windowResumed = false
+        if (!pendingAssistListen) {
+            listen?.stop()
+            if (::talkBtn.isInitialized) talkBtn.text = "Talk"
+        }
         super.onPause()
     }
 
@@ -430,6 +447,7 @@ class MainActivity : Activity() {
                     else -> "✗ on-device speech pack missing\n"
                 },
             )
+            append("Talk: button, QS tile, notification, long-press icon, or corner swipe\n")
             append(if (RunPrefs.auto(this@MainActivity)) "● Auto: Send and start-task cards are skipped\n" else "○ Auto off: EZER will ask before Send\n")
             append(if (RunPrefs.speak(this@MainActivity)) "● Speak results on\n" else "○ Speak results off\n")
             append("${settings.label} · ${brain.slug} · $host\n")
@@ -492,8 +510,21 @@ class MainActivity : Activity() {
 
     companion object {
         const val EXTRA_FROM_ASSIST = "from_assist"
+        const val EXTRA_START_LISTEN = "start_listen"
         private const val REQ_START = 1
         private const val REQ_MIC = 2
+
+        fun listenIntent(context: Context): Intent =
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra(EXTRA_START_LISTEN, true)
+
+        fun wantsListen(intent: Intent?): Boolean {
+            if (intent == null) return false
+            if (intent.getBooleanExtra(EXTRA_FROM_ASSIST, false)) return true
+            if (intent.getBooleanExtra(EXTRA_START_LISTEN, false)) return true
+            return intent.getStringExtra(EXTRA_START_LISTEN).equals("true", ignoreCase = true)
+        }
 
         fun isDefaultAssistant(context: Context): Boolean =
             Settings.Secure.getString(context.contentResolver, "assistant")?.startsWith(context.packageName) == true

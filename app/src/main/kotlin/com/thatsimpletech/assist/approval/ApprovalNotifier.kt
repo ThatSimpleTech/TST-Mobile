@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
+import com.thatsimpletech.assist.ui.MainActivity
 
 /**
  * The notification half of the approval surface (plan §4): Approve and Deny as actions, for
@@ -55,6 +56,7 @@ class ApprovalNotifier(private val context: Context) {
             context, 3, Intent(context, ApprovalReceiver::class.java).setAction(ApprovalReceiver.ACTION_KILL),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        val talk = listenPending()
         return Notification.Builder(context, CHANNEL_TASK)
             .setSmallIcon(Icon.createWithResource(context, android.R.drawable.ic_menu_manage))
             .setContentTitle("EZER: $goal")
@@ -62,6 +64,7 @@ class ApprovalNotifier(private val context: Context) {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_SERVICE)
+            .addAction(Notification.Action.Builder(Icon.createWithResource(context, android.R.drawable.ic_btn_speak_now), "Talk", talk).build())
             .addAction(Notification.Action.Builder(Icon.createWithResource(context, android.R.drawable.ic_lock_power_off), "Stop", kill).build())
             .build()
     }
@@ -81,9 +84,17 @@ class ApprovalNotifier(private val context: Context) {
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_STATUS)
+            .addAction(Notification.Action.Builder(Icon.createWithResource(context, android.R.drawable.ic_btn_speak_now), "Talk", listenPending()).build())
             .build()
         nm.notify(TASK_NOTIFICATION_ID, n)
     }
+
+    private fun listenPending(): PendingIntent =
+        PendingIntent.getActivity(
+            context, 4,
+            MainActivity.listenIntent(context),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
 
     private fun pending(requestId: Long, action: String, code: Int): PendingIntent =
         PendingIntent.getBroadcast(

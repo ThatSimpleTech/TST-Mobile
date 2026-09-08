@@ -221,5 +221,12 @@ Closed verbs that do the GOAL in one shot (torch, timer, alarm, call, text, what
 
 Same person with two numbers: prefer mobile, else the longer digit string. Two different people: Ambiguous. Contacts grant off: `"contacts permission is off"`. Never invent a number.
 
+## TM-029 (2026-09-08) Talk from tile, notification, and shortcut
+
+No wake word in this slice. A Quick Settings **Talk** tile, a **Talk** action on the task notification, and a launcher shortcut all open `MainActivity` and start on-device listen (same path as the assist gesture / long-press power). Custom edge-swipe overlay is refused: it fights Back, Home, and the Pixel corner swipe. Hey EZER keyword spotting stays later (plan §8).
+
+Locked phone still does not auto-run. Audio still does not leave the device.
+
+
 
 
