@@ -119,3 +119,18 @@ The screen now has three modes — OpenRouter, Local/LAN, Custom server — plus
 
 Cleartext at the OS layer is permitted so `http://192.168.x:11434/v1` reaches a box on the LAN. That is a BYOM exception to TM-006, which still stands for Home/tstd (prefer a MagicDNS name). The real door remains `Endpoints`: a host that is not on the active preset is refused before a socket opens. On-device LiteRT is still an honest refusal.
 
+## TM-016 (2026-09-08) Closed verbs for non-tree actions
+
+M2 non-tree work (calls, texts, alarms, timers, calendar, contacts, navigation, flashlight, DND, brightness, volume, media, WhatsApp/Spotify/Gmail, Quick Settings) enters the same closed grammar as tree driving: one new `Verb` / `Action` per line, quoted payloads, `render()` round-trips through `ActionParser`, empty `hints` so a node is not required. A generic `do "…"` is refused; unknown words stay `unknown verb`.
+
+Adam accepted this table and the §15 defaults that constrain it:
+
+- **Dial-only.** `call` prepares `ACTION_DIAL`. No `ACTION_CALL` in M2.
+- **SMS draft.** `text` prepares `ACTION_SENDTO`. No `SmsManager` in M2.
+- **Calendar UI insert.** `event` opens the insert UI. No silent `ContentResolver.insert`.
+- **Wi-Fi / Bluetooth.** `qs` then tap a visible tile (Tier 2 via `on_qs`), or `open "Settings"` and tap the row. No `wifi` / `bluetooth` verb and no silent adapter APIs. SystemUI is not allowlisted.
+- **Contacts** join the allowlist (`com.google.android.contacts`). `contact lookup` / `contact add` are the two forms of one verb, same pattern as `notif`.
+- **No media seek.** `media` / `spotify` are play, pause, next, prev.
+
+Partner misses are honest errors, not a fall-through to `tap`/`type` (that path is M6). Cards still show `plainWords()` payloads (TM-014). Intent, device, partner, and `qs` verbs are not app-scoped; a WhatsApp tree-`tap` still is. `qs` acts (keyguard refuses it) and is silent when unlocked via the `read-only` verb list, like `back` / `home` / `recents`.
+

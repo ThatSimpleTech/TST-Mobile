@@ -71,6 +71,12 @@ class NodeExecutor(
         is Action.Wait -> { delay(action.seconds * 1000L); ExecResult.OK }
         // Terminal and paging verbs never reach the executor; the loop handles them.
         is Action.Done, is Action.Ask, Action.More -> ExecResult.error("not an executable verb")
+        // Non-tree verbs parse and policy-gate; their executors are not built yet.
+        is Action.Call, is Action.Text, is Action.Alarm, is Action.Timer, is Action.Event,
+        is Action.ContactLookup, is Action.ContactAdd, is Action.Navigate,
+        is Action.Torch, is Action.Dnd, is Action.Brightness, is Action.Volume,
+        is Action.Media, is Action.WhatsApp, is Action.Spotify, is Action.Gmail,
+        Action.Qs -> ExecResult.error("${action.verb.word} is not built yet")
     }
 
     private inline fun onNode(target: UiNode?, block: (AccessibilityNodeInfo) -> ExecResult): ExecResult {

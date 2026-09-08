@@ -39,6 +39,7 @@ data class When(
     @SerialName("open_allowlisted") val openAllowlisted: Boolean? = null,
     @SerialName("app_in_goal") val appInGoal: Boolean? = null,
     @SerialName("app_settings") val appSettings: Boolean? = null,
+    @SerialName("on_qs") val onQs: Boolean? = null,
 )
 
 @Serializable
@@ -129,10 +130,29 @@ object VerbKey {
     const val DONE = "done"
     const val ASK = "ask"
     const val MORE = "more"
+    const val CALL = "call"
+    const val TEXT = "text"
+    const val ALARM = "alarm"
+    const val TIMER = "timer"
+    const val EVENT = "event"
+    const val CONTACT_LOOKUP = "contact_lookup"
+    const val CONTACT_ADD = "contact_add"
+    const val NAVIGATE = "navigate"
+    const val MEDIA = "media"
+    const val TORCH = "torch"
+    const val DND = "dnd"
+    const val BRIGHTNESS = "brightness"
+    const val VOLUME = "volume"
+    const val QS = "qs"
+    const val WHATSAPP = "whatsapp"
+    const val SPOTIFY = "spotify"
+    const val GMAIL = "gmail"
 
     val ALL: Set<String> = setOf(
         TAP, LONG, TYPE, CLEAR, SCROLL, SWIPE, DRAG, BACK, HOME, RECENTS, OPEN,
         NOTIF_LIST, NOTIF_REPLY, NOTIF_OPEN, SCREEN_ASK, WAIT, DONE, ASK, MORE,
+        CALL, TEXT, ALARM, TIMER, EVENT, CONTACT_LOOKUP, CONTACT_ADD, NAVIGATE,
+        MEDIA, TORCH, DND, BRIGHTNESS, VOLUME, QS, WHATSAPP, SPOTIFY, GMAIL,
     )
 
     /** Verbs that change nothing on the device. Everything else "acts". */

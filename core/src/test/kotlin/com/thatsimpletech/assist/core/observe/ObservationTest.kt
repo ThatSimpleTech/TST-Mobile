@@ -146,6 +146,18 @@ class ObservationTest {
     }
 
     @Test
+    fun onQsFalseByDefault() {
+        val obs = ObservationBuilder(coverage = CoverageDetector(minNodesPerMegapixel = 0.0)).observe(whatsapp())
+        assertFalse(obs.onQs)
+        val withQs = obs.copy(onQs = true)
+        val plain = ObservationFormatter.format(obs)
+        val flagged = ObservationFormatter.format(withQs)
+        assertEquals(plain, flagged, "intent/QS verbs do not change the observation block")
+        assertFalse("on_qs" in flagged.lowercase())
+        assertFalse(flagged.lines()[1].contains("qs="), flagged.lines()[1])
+    }
+
+    @Test
     fun passwordFieldsAreFlaggedAndTheirTextIsNeverTheLabel() {
         val screen = Screen(
             "com.bank", "Login", display,

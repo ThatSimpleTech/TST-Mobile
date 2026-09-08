@@ -29,6 +29,7 @@ data class ActionFacts(
     val openAllowlisted: Boolean,
     val appInGoal: Boolean,
     val appSettings: Boolean,
+    val onQs: Boolean,
 )
 
 enum class Gate {
@@ -58,8 +59,16 @@ data class Decision(
  */
 class PolicyEnforcer(val pack: PolicyPack) {
 
-    fun decide(action: Action, screenApp: String, target: UiNode?, keyguard: Boolean, secure: Boolean, task: TaskContext): Decision {
-        val f = facts(action, screenApp, target, keyguard, secure, task)
+    fun decide(
+        action: Action,
+        screenApp: String,
+        target: UiNode?,
+        keyguard: Boolean,
+        secure: Boolean,
+        task: TaskContext,
+        onQs: Boolean = false,
+    ): Decision {
+        val f = facts(action, screenApp, target, keyguard, secure, task, onQs)
         val (tier, rule, reason) = classify(f)
         return Decision(tier, rule, reason, gate(tier, task), f)
     }
@@ -79,7 +88,15 @@ class PolicyEnforcer(val pack: PolicyPack) {
         Tier.REFUSED -> Gate.REFUSE
     }
 
-    fun facts(action: Action, screenApp: String, target: UiNode?, keyguard: Boolean, secure: Boolean, task: TaskContext): ActionFacts {
+    fun facts(
+        action: Action,
+        screenApp: String,
+        target: UiNode?,
+        keyguard: Boolean,
+        secure: Boolean,
+        task: TaskContext,
+        onQs: Boolean = false,
+    ): ActionFacts {
         val verb = verbKey(action)
         val openTarget = (action as? Action.Open)?.let { pack.resolveOpen(it.app) }
         // The app an action lands in: the launched app for `open`, the screen's app otherwise.
@@ -99,6 +116,7 @@ class PolicyEnforcer(val pack: PolicyPack) {
             openAllowlisted = action !is Action.Open || openTarget != null,
             appInGoal = app in goal,
             appSettings = app in pack.settingsPackages,
+            onQs = onQs,
         )
     }
 
@@ -120,6 +138,7 @@ class PolicyEnforcer(val pack: PolicyPack) {
         if (w.openAllowlisted != null && w.openAllowlisted != f.openAllowlisted) return false
         if (w.appInGoal != null && w.appInGoal != f.appInGoal) return false
         if (w.appSettings != null && w.appSettings != f.appSettings) return false
+        if (w.onQs != null && w.onQs != f.onQs) return false
         return true
     }
 
@@ -144,6 +163,23 @@ class PolicyEnforcer(val pack: PolicyPack) {
             is Action.Done -> VerbKey.DONE
             is Action.Ask -> VerbKey.ASK
             Action.More -> VerbKey.MORE
+            is Action.Call -> VerbKey.CALL
+            is Action.Text -> VerbKey.TEXT
+            is Action.Alarm -> VerbKey.ALARM
+            is Action.Timer -> VerbKey.TIMER
+            is Action.Event -> VerbKey.EVENT
+            is Action.ContactLookup -> VerbKey.CONTACT_LOOKUP
+            is Action.ContactAdd -> VerbKey.CONTACT_ADD
+            is Action.Navigate -> VerbKey.NAVIGATE
+            is Action.Media -> VerbKey.MEDIA
+            is Action.Torch -> VerbKey.TORCH
+            is Action.Dnd -> VerbKey.DND
+            is Action.Brightness -> VerbKey.BRIGHTNESS
+            is Action.Volume -> VerbKey.VOLUME
+            Action.Qs -> VerbKey.QS
+            is Action.WhatsApp -> VerbKey.WHATSAPP
+            is Action.Spotify -> VerbKey.SPOTIFY
+            is Action.Gmail -> VerbKey.GMAIL
         }
     }
 }

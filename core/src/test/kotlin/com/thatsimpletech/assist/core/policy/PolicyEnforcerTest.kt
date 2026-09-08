@@ -2,12 +2,14 @@ package com.thatsimpletech.assist.core.policy
 
 import com.thatsimpletech.assist.core.grammar.Action
 import com.thatsimpletech.assist.core.grammar.Direction
+import com.thatsimpletech.assist.core.media.SpotifyCommand
 import com.thatsimpletech.assist.core.observe.Rect
 import com.thatsimpletech.assist.core.observe.Role
 import com.thatsimpletech.assist.core.observe.UiNode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PolicyEnforcerTest {
@@ -127,5 +129,98 @@ class PolicyEnforcerTest {
         val e = assertFailsWith<IllegalArgumentException> { PolicyPack.parse(bad) }
         assertTrue("duplicate rule id" in e.message!!)
         assertTrue("unknown verbs" in e.message!!)
+    }
+
+    @Test
+    fun callIsEveryTimeEvenInsideGoalApps() {
+        val phone = TaskContext(goalApps = setOf("com.google.android.dialer"))
+        val d = enforcer.decide(Action.Call("5550100"), "com.google.android.dialer", null, false, false, phone)
+        assertEquals("call-place", d.rule)
+        assertEquals(Tier.EVERY_TIME, d.tier)
+        assertEquals(Gate.NEED_CARD, d.gate)
+    }
+
+    @Test
+    fun textIsEveryTime() {
+        val sms = TaskContext(goalApps = setOf("com.google.android.apps.messaging"))
+        val d = enforcer.decide(Action.Text("5550100", "hi"), "com.google.android.apps.messaging", null, false, false, sms)
+        assertEquals("text-send", d.rule)
+        assertEquals(Tier.EVERY_TIME, d.tier)
+    }
+
+    @Test
+    fun alarmIsOnce() {
+        val clock = TaskContext(goalApps = setOf("com.google.android.deskclock"))
+        val d = enforcer.decide(Action.Alarm(7, 30, "wake"), "com.google.android.deskclock", null, false, false, clock)
+        assertEquals("alarm-set", d.rule)
+        assertEquals(Tier.ONCE_PER_TASK, d.tier)
+    }
+
+    @Test
+    fun torchIsDeviceControlEveryTime() {
+        val d = enforcer.decide(Action.Torch(true), "com.whatsapp", null, false, false, wa)
+        assertEquals("device-control", d.rule)
+        assertEquals(Tier.EVERY_TIME, d.tier)
+    }
+
+    @Test
+    fun qsOpenIsSilentLikeRecents() {
+        val qs = enforcer.decide(Action.Qs, "com.whatsapp", null, false, false, wa)
+        val recents = enforcer.decide(Action.Recents, "com.whatsapp", null, false, false, wa)
+        assertEquals("read-only", qs.rule)
+        assertEquals(Tier.SILENT, qs.tier)
+        assertEquals(Gate.PROCEED, qs.gate)
+        assertEquals(recents.tier, qs.tier)
+        assertEquals(recents.gate, qs.gate)
+    }
+
+    @Test
+    fun qsTapIsEveryTimeEvenWhenSystemUiIsNotAllowlisted() {
+        val d = enforcer.decide(Action.Tap(1), "com.android.systemui", btn("Wi-Fi"), false, false, wa, onQs = true)
+        assertEquals("qs-tile", d.rule)
+        assertEquals(Tier.EVERY_TIME, d.tier)
+        assertEquals(Gate.NEED_CARD, d.gate)
+    }
+
+    @Test
+    fun whatsappSendIsEveryTime() {
+        val d = enforcer.decide(Action.WhatsApp("Maria", "hi"), "com.whatsapp", null, false, false, wa)
+        assertEquals("partner-send", d.rule)
+        assertEquals(Tier.EVERY_TIME, d.tier)
+    }
+
+    @Test
+    fun spotifyPlayIsOnce() {
+        val music = TaskContext(goalApps = setOf("com.spotify.music"))
+        val d = enforcer.decide(Action.Spotify(SpotifyCommand.Play("jazz")), "com.spotify.music", null, false, false, music)
+        assertEquals("partner-media", d.rule)
+        assertEquals(Tier.ONCE_PER_TASK, d.tier)
+    }
+
+    @Test
+    fun keyguardStillRefusesCall() {
+        val d = enforcer.decide(Action.Call("5550100"), "com.android.systemui", null, keyguard = true, secure = false, task = wa)
+        assertEquals("keyguard-locked", d.rule)
+        assertEquals(Gate.REFUSE, d.gate)
+        val qs = enforcer.decide(Action.Qs, "com.android.systemui", null, keyguard = true, secure = false, task = wa)
+        assertEquals("keyguard-locked", qs.rule)
+        assertEquals(Gate.REFUSE, qs.gate)
+    }
+
+    @Test
+    fun intentVerbsAreNotAppScoped() {
+        val bank = TaskContext(goalApps = setOf("com.bank.app"))
+        val call = enforcer.decide(Action.Call("5550100"), "com.bank.app", null, false, false, bank)
+        assertEquals("call-place", call.rule)
+        assertFalse(call.facts.appScoped)
+        val torch = enforcer.decide(Action.Torch(false), "com.bank.app", null, false, false, bank)
+        assertEquals("device-control", torch.rule)
+        assertFalse(torch.facts.appScoped)
+        val qs = enforcer.decide(Action.Qs, "com.bank.app", null, false, false, bank)
+        assertEquals("read-only", qs.rule)
+        assertFalse(qs.facts.appScoped)
+        val tap = enforcer.decide(Action.Tap(1), "com.bank.app", btn("Ok"), false, false, bank)
+        assertEquals("app-not-allowlisted", tap.rule)
+        assertTrue(tap.facts.appScoped)
     }
 }

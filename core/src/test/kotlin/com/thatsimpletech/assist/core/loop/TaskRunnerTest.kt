@@ -27,7 +27,10 @@ class TaskRunnerTest {
     private val whatsappOnly = setOf("com.whatsapp")
 
     /** The verbs every `once` rule in policy.yaml names: what the one Tier 1 card covers. */
-    private val tier1Verbs = setOf("notif_open", "screen_ask", "tap", "long", "type", "clear", "drag", "swipe")
+    private val tier1Verbs = setOf(
+        "notif_open", "screen_ask", "tap", "long", "type", "clear", "drag", "swipe",
+        "alarm", "timer", "navigate", "media", "spotify", "contact_lookup",
+    )
 
     private class Rig(
         replies: List<String>,

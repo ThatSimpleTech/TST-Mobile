@@ -23,6 +23,8 @@ data class Observation(
     val fingerprint: String,
     /** Hint of the first scrollable node, offered in the `[more ...]` line. */
     val scrollHint: Int?,
+    /** True when the shade (Quick Settings) is the window the tree is reading. */
+    val onQs: Boolean = false,
 ) {
     val hints: Set<Int> get() = lines.mapTo(HashSet()) { it.hint }
     val fp: String get() = Fingerprint.short(fingerprint)

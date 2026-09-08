@@ -140,7 +140,7 @@ class TaskRunner(
 
             val target = action.hints.firstOrNull()?.let { obs.node(it) }
             val task = TaskContext(goalApps, confirmedApps.toSet(), taskGranted, tier2ThisTurn)
-            val decision = enforcer.decide(action, obs.app, target, obs.keyguard, obs.secure, task)
+            val decision = enforcer.decide(action, obs.app, target, obs.keyguard, obs.secure, task, obs.onQs)
             var countsAsTier2 = false
 
             when (decision.gate) {
