@@ -19,6 +19,7 @@ import com.thatsimpletech.assist.BuildConfig
 import com.thatsimpletech.assist.Graph
 import com.thatsimpletech.assist.a11y.AssistAccessibilityService
 import com.thatsimpletech.assist.config.ProviderSettings
+import com.thatsimpletech.assist.config.RunPrefs
 import com.thatsimpletech.assist.core.config.Endpoint
 import com.thatsimpletech.assist.core.config.TierName
 import com.thatsimpletech.assist.core.net.ProviderKey
@@ -44,6 +45,12 @@ class MainActivity : Activity() {
     private lateinit var ezerBtn: Button
     private lateinit var cloudBtn: Button
     private lateinit var localBtn: Button
+    private lateinit var a11yBtn: Button
+    private lateinit var assistantBtn: Button
+    private lateinit var notifBtn: Button
+    private lateinit var overlayBtn: Button
+    private lateinit var autoBtn: Button
+    private lateinit var setupHint: TextView
     private var mode: ProviderSettings.Mode = ProviderSettings.Mode.EZER
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,23 +63,31 @@ class MainActivity : Activity() {
         status = TextView(this)
         col.addView(status)
 
-        col.addView(button("Accessibility settings (screen driver)") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
-        col.addView(button("Default assistant") { startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) })
-        col.addView(button("Notification access") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) })
-        col.addView(button("Draw over other apps (so EZER can open WhatsApp)") {
+        a11yBtn = button("Accessibility settings (screen driver)") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        assistantBtn = button("Default assistant") { startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) }
+        notifBtn = button("Notification access") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+        overlayBtn = button("Draw over other apps (so EZER can open WhatsApp)") {
             startActivity(
                 Intent(
                     Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:$packageName"),
                 ),
             )
-        })
+        }
+        col.addView(a11yBtn)
+        col.addView(assistantBtn)
+        col.addView(notifBtn)
+        col.addView(overlayBtn)
 
-        col.addView(TextView(this).apply {
-            text = "EZER drives this phone. Accessibility on → Draw over other apps on → Save EZER → Run task. EZER will open WhatsApp itself. Approve type, then Send."
+        setupHint = TextView(this).apply {
+            text = "Missing Android switches show above. EZER cannot turn those on for you."
             textSize = 14f
             setPadding(0, (8 * dp).toInt(), 0, (12 * dp).toInt())
-        })
+        }
+        col.addView(setupHint)
+
+        autoBtn = button(autoLabel()) { RunPrefs.setAuto(this, !RunPrefs.auto(this)); render() }
+        col.addView(autoBtn)
 
         col.addView(heading("Brain", dp))
         ezerBtn = button("EZER home") { setMode(ProviderSettings.Mode.EZER) }
@@ -212,12 +227,22 @@ class MainActivity : Activity() {
         val settings = Graph.provider
         val brain = Graph.config.tier(TierName.BRAIN)
         val host = Endpoint.host(brain.baseUrl) ?: brain.baseUrl
+        val overlayOk = Settings.canDrawOverlays(this)
+        a11yBtn.visibility = if (a11y) View.GONE else View.VISIBLE
+        assistantBtn.visibility = if (assistant) View.GONE else View.VISIBLE
+        notifBtn.visibility = if (notif) View.GONE else View.VISIBLE
+        overlayBtn.visibility = if (overlayOk) View.GONE else View.VISIBLE
+        val missing = !a11y || !overlayOk
+        setupHint.visibility = if (missing) View.VISIBLE else View.GONE
+        autoBtn.text = autoLabel()
+
         status.text = buildString {
             append("EZER ${BuildConfig.VERSION_NAME}\n\n")
             append(if (a11y) "✓ screen driver on\n" else "✗ screen driver off (no-accessibility mode: answers, notifications, intents)\n")
             append(if (assistant) "✓ default assistant\n" else "✗ not the default assistant\n")
             append(if (notif) "✓ notification access\n" else "✗ notification access off\n")
-            append(if (Settings.canDrawOverlays(this@MainActivity)) "✓ can open other apps\n" else "✗ draw-over-apps off (EZER cannot leave this screen)\n")
+            append(if (overlayOk) "✓ can open other apps\n" else "✗ draw-over-apps off (EZER cannot leave this screen)\n")
+            append(if (RunPrefs.auto(this@MainActivity)) "● Auto: Send and start-task cards are skipped\n" else "○ Auto off: EZER will ask before Send\n")
             append("${settings.label} · ${brain.slug} · $host\n")
             append(
                 when {
@@ -231,6 +256,10 @@ class MainActivity : Activity() {
             if (last.isNotBlank()) append("\nLast run: $last\n")
         }
     }
+
+    private fun autoLabel(): String =
+        if (RunPrefs.auto(this)) "Auto mode: ON (skip approve cards)"
+        else "Auto mode: OFF (ask before Send)"
 
     private fun heading(label: String, dp: Float): TextView = TextView(this).apply {
         text = label

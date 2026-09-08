@@ -25,6 +25,7 @@ class TaskRunnerTest {
     private val instructions = "You are TST Assist. Answer with one action line."
     private val goal = "reply to Maria confirming 7pm"
     private val whatsappOnly = setOf("com.whatsapp")
+    private val stepLimit = pack.stepBudget
 
     /** The verbs every `once` rule in policy.yaml names: what the one Tier 1 card covers. */
     private val tier1Verbs = setOf("notif_open", "screen_ask", "tap", "long", "type", "clear", "drag", "swipe")
@@ -85,9 +86,9 @@ class TaskRunnerTest {
         // The prompt is instructions, a blank line, then the data block and the trailer.
         assertEquals(3, rig.prompts.size)
         assertTrue(rig.prompts[0].startsWith("$instructions\n\n${ObservationFormatter.OPEN}\n"), rig.prompts[0])
-        assertTrue(rig.prompts[0].contains("\nGOAL: $goal\nSTEP 1 of 12"), rig.prompts[0])
-        assertTrue(rig.prompts[1].endsWith("STEP 2 of 12   LAST: type 3 \"Yes, see you at 7\" -> ok"), rig.prompts[1])
-        assertTrue(rig.prompts[2].endsWith("STEP 3 of 12   LAST: tap 4 -> ok"), rig.prompts[2])
+        assertTrue(rig.prompts[0].contains("\nGOAL: $goal\nSTEP 1 of $stepLimit"), rig.prompts[0])
+        assertTrue(rig.prompts[1].endsWith("STEP 2 of $stepLimit   LAST: type 3 \"Yes, see you at 7\" -> ok"), rig.prompts[1])
+        assertTrue(rig.prompts[2].endsWith("STEP 3 of $stepLimit   LAST: tap 4 -> ok"), rig.prompts[2])
 
         // The listener saw every step, both approvals and the end, in order.
         assertEquals(listOf(1, 2, 3), rig.listener.steps.map { it.step })
@@ -105,7 +106,7 @@ class TaskRunnerTest {
             executor = RecordingExecutor(ExecResult.error("no window to go back from")),
         )
         assertEquals(Outcome.Done("gave up"), run(rig))
-        assertTrue(rig.prompts[1].endsWith("STEP 2 of 12   LAST: back -> error no window to go back from"), rig.prompts[1])
+        assertTrue(rig.prompts[1].endsWith("STEP 2 of $stepLimit   LAST: back -> error no window to go back from"), rig.prompts[1])
     }
 
     // ---- screen text is data ----
@@ -131,7 +132,7 @@ class TaskRunnerTest {
         assertEquals(Outcome.Done("nothing"), run(rig))
 
         assertTrue(rig.executor.calls.isEmpty())
-        assertTrue(rig.prompts[1].endsWith("STEP 2 of 12   LAST: error unknown verb 'Sure!'"), rig.prompts[1])
+        assertTrue(rig.prompts[1].endsWith("STEP 2 of $stepLimit   LAST: error unknown verb 'Sure!'"), rig.prompts[1])
         assertIs<ParseResult.Error>(rig.listener.steps[0].parsed)
         assertNull(rig.listener.steps[0].decision)
     }
@@ -162,7 +163,7 @@ class TaskRunnerTest {
 
         // Step 1 was planned, judged, then refused at the last check; step 2 executed.
         assertEquals(listOf<Action>(Action.Back), rig.executor.actions)
-        assertTrue(rig.prompts[1].endsWith("STEP 2 of 12   LAST: back -> error screen changed, look again"), rig.prompts[1])
+        assertTrue(rig.prompts[1].endsWith("STEP 2 of $stepLimit   LAST: back -> error screen changed, look again"), rig.prompts[1])
         assertEquals(3, rig.observer.observeCalls)
         assertNotNull(rig.listener.steps[0].decision)
         assertNull(rig.listener.steps[0].result)
@@ -229,7 +230,7 @@ class TaskRunnerTest {
         val rig = Rig(replies = listOf("tap 4", "done \"ok, not sent\""), screens = listOf(Screens.whatsapp()), approvals = ScriptedApprovals(cards = listOf(false)))
         assertEquals(Outcome.Done("ok, not sent"), run(rig))
         assertTrue(rig.executor.calls.isEmpty())
-        assertTrue(rig.prompts[1].endsWith("STEP 2 of 12   LAST: tap 4 -> error denied"), rig.prompts[1])
+        assertTrue(rig.prompts[1].endsWith("STEP 2 of $stepLimit   LAST: tap 4 -> error denied"), rig.prompts[1])
         assertEquals(listOf(ApprovalKind.CARD to false), rig.listener.approvals)
     }
 
@@ -259,10 +260,10 @@ class TaskRunnerTest {
 
     @Test
     fun taskGrantIsAskedExactlyOnceAndCoversLaterTier1Actions() {
-        val rig = Rig(replies = listOf("type 3 \"a\"", "type 3 \"b\"", "done \"x\""), screens = listOf(Screens.whatsapp()))
+        val rig = Rig(replies = listOf("type 3 \"a\"", "type 3 \"b\"", "tap 4", "done \"x\""), screens = listOf(Screens.whatsapp()), approvals = ScriptedApprovals(cards = listOf(true)))
         assertEquals(Outcome.Done("x"), run(rig))
         assertEquals(1, rig.approvals.grants.size)
-        assertEquals(listOf(Action.Type(3, "a"), Action.Type(3, "b")), rig.executor.actions)
+        assertEquals(listOf(Action.Type(3, "a"), Action.Type(3, "b"), Action.Tap(4)), rig.executor.actions)
         assertEquals(listOf(Gate.NEED_TASK_GRANT, Gate.PROCEED), rig.listener.steps.take(2).map { it.decision?.gate })
     }
 
@@ -281,7 +282,7 @@ class TaskRunnerTest {
     fun secondConsecutiveRefusalStopsTheRun() {
         val rig = Rig(replies = listOf("tap 4", "tap 4"), screens = listOf(Screens.whatsapp(keyguard = true)))
         val reason = stopped(run(rig))
-        assertTrue(rig.prompts[1].endsWith("STEP 2 of 12   LAST: tap 4 -> error refused: the phone is locked; answers are fine, actions need it unlocked"), rig.prompts[1])
+        assertTrue(rig.prompts[1].endsWith("STEP 2 of $stepLimit   LAST: tap 4 -> error refused: the phone is locked; answers are fine, actions need it unlocked"), rig.prompts[1])
         assertEquals("refused twice: the phone is locked; answers are fine, actions need it unlocked", reason)
         assertTrue(rig.executor.calls.isEmpty())
         assertTrue(rig.approvals.cards.isEmpty())
@@ -294,6 +295,33 @@ class TaskRunnerTest {
         assertTrue(rig.executor.calls.isEmpty())
     }
 
+    @Test
+    fun askingWhetherToDoTheGoalIsNudgedNotEnded() {
+        val rig = Rig(
+            replies = listOf(
+                "ask \"Should I reply to Maria confirming 7pm?\"",
+                "open \"WhatsApp\"",
+                "done \"opened\"",
+            ),
+            screens = listOf(Screens.whatsapp()),
+        )
+        assertEquals(Outcome.Done("opened"), run(rig))
+        assertTrue(rig.prompts[1].contains("the GOAL is already approved"), rig.prompts[1])
+        assertEquals(listOf("open \"WhatsApp\""), rig.executor.actions.map { it.render() })
+    }
+
+    @Test
+    fun doneAfterTypeOnASendGoalWaitsForSend() {
+        val rig = Rig(
+            replies = listOf("type 3 \"hi\"", "done \"typed\"", "tap 4", "done \"sent\""),
+            screens = listOf(Screens.whatsapp()),
+            approvals = ScriptedApprovals(taskGrant = true, cards = listOf(true)),
+        )
+        assertEquals(Outcome.Done("sent"), run(rig))
+        assertTrue(rig.prompts[2].contains("tap 4"), rig.prompts[2])
+        assertEquals(listOf(Action.Type(3, "hi"), Action.Tap(4)), rig.executor.actions)
+    }
+
     // ---- paging ----
 
     @Test
@@ -304,7 +332,7 @@ class TaskRunnerTest {
         assertEquals(1, rig.observer.observeCalls)
         assertTrue(rig.prompts[0].contains(" page=1/3\n"), rig.prompts[0])
         assertTrue(rig.prompts[1].contains(" page=2/3\n"), rig.prompts[1])
-        assertTrue(rig.prompts[1].endsWith("STEP 2 of 12   LAST: more -> ok"), rig.prompts[1])
+        assertTrue(rig.prompts[1].endsWith("STEP 2 of $stepLimit   LAST: more -> ok"), rig.prompts[1])
         assertTrue(rig.prompts[2].contains(" page=3/3\n"), rig.prompts[2])
         assertTrue(rig.prompts[2].lines().any { it.startsWith("[121] btn \"Chat 121\"") }, rig.prompts[2])
     }

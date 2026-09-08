@@ -53,7 +53,7 @@ object TaskController {
         val goalApps = GoalApps.infer(goal, pack)
         return when (val outcome = runner.run(goal, goalApps)) {
             is Outcome.Done -> "done: ${outcome.summary}"
-            is Outcome.Ask -> "question: ${outcome.question}"
+            is Outcome.Ask -> if (isCallFailure(outcome.question)) "stopped: ${outcome.question}" else "question: ${outcome.question}"
             is Outcome.Stopped -> "stopped: ${outcome.reason}"
         } + "  ·  " + meterChip(meter)
     }
@@ -61,6 +61,11 @@ object TaskController {
     /** The spend chip (plan §5): session, this turn, tokens. */
     fun meterChip(m: CostTracker): String =
         "\$%.4f session · \$%.4f turn · %d tokens".format(m.sessionCost(), m.turnCost(), m.sessionTokens())
+
+    private fun isCallFailure(q: String): Boolean {
+        val f = q.lowercase()
+        return "timed out" in f || "timeout" in f || "model call failed" in f || "empty action" in f
+    }
 }
 
 /**

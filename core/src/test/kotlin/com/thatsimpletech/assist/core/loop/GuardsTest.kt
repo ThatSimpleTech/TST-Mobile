@@ -40,7 +40,7 @@ class GuardsTest {
     @Test
     fun defaultsComeFromThePolicyPack() {
         val pack = PolicyPack.loadDefault()
-        assertEquals(12, StepBudget.of(pack).limit)
+        assertEquals(36, StepBudget.of(pack).limit)
         assertEquals(3, LoopDetector.of(pack).limit)
     }
 

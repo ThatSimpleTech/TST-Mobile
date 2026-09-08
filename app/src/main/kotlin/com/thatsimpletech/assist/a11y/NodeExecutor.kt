@@ -50,9 +50,9 @@ class NodeExecutor(
     }
 
     override suspend fun execute(action: Action, target: UiNode?, observation: Observation): ExecResult = when (action) {
-        is Action.Tap -> onNode(target) { n -> if (n.performAction(AccessibilityNodeInfo.ACTION_CLICK)) ExecResult.OK else tapGesture(n.center()) }
+        is Action.Tap -> tap(target)
         is Action.Long -> onNode(target) { n -> if (n.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)) ExecResult.OK else holdGesture(n.center()) }
-        is Action.Type -> onNode(target) { n -> setText(n, action.text) }
+        is Action.Type -> type(target, action.text)
         is Action.Clear -> onNode(target) { n -> setText(n, "") }
         is Action.Scroll -> onNode(target) { n -> scroll(n, action.direction, target!!.bounds) }
         is Action.Swipe -> when (val t = action.target) {
@@ -77,6 +77,20 @@ class NodeExecutor(
         is Action.Done, is Action.Ask, Action.More -> ExecResult.error("not an executable verb")
     }
 
+    /** Compact controls (icons, Send) are tapped at their pixel center; slabs use ACTION_CLICK. */
+    private suspend fun tap(target: UiNode?): ExecResult {
+        if (target == null) return ExecResult.error("no target")
+        val live = walker.find(target.identity) ?: return ExecResult.error("control is no longer on screen")
+        if (!live.isVisibleToUser) return ExecResult.error("control is not visible")
+        val compact = target.bounds.area in 1 until 80_000
+        if (compact) {
+            val g = tapGesture(live.center())
+            if (g.ok) return g
+        }
+        if (live.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return ExecResult.OK
+        return tapGesture(live.center())
+    }
+
     private inline fun onNode(target: UiNode?, block: (AccessibilityNodeInfo) -> ExecResult): ExecResult {
         if (target == null) return ExecResult.error("no target")
         val live = walker.find(target.identity) ?: return ExecResult.error("control is no longer on screen")
@@ -84,19 +98,105 @@ class NodeExecutor(
         return block(live)
     }
 
+    private suspend fun type(target: UiNode?, text: String): ExecResult {
+        if (text.isEmpty()) return ExecResult.error("nothing to type")
+        val start = target?.let { walker.find(it.identity) }
+        val fields = editableFields(start)
+        if (fields.isEmpty()) return ExecResult.error("no editable field on screen")
+
+        val cm = service.getSystemService(android.content.ClipboardManager::class.java)
+        cm?.setPrimaryClip(android.content.ClipData.newPlainText("ezer", text))
+
+        for (field in fields) {
+            if (field.isPassword) continue
+            focusField(field)
+            delay(300)
+            // WhatsApp advertises SET_TEXT and no-ops. Believe the node text, not the boolean.
+            trySetText(field, text)
+            if (holdsText(field, text)) {
+                runCatching { cm?.clearPrimaryClip() }
+                delay(400) // WhatsApp swaps the mic for Send after the box has text.
+                return ExecResult.OK
+            }
+            field.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+            delay(200)
+            if (holdsText(field, text)) {
+                runCatching { cm?.clearPrimaryClip() }
+                delay(400)
+                return ExecResult.OK
+            }
+        }
+        return ExecResult.error("field refused text")
+    }
+
+    private suspend fun focusField(n: AccessibilityNodeInfo) {
+        n.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        n.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+        if (!n.isFocused) tapGesture(n.center())
+    }
+
+    private fun trySetText(n: AccessibilityNodeInfo, text: String) {
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        }
+        n.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+    }
+
+    private fun holdsText(n: AccessibilityNodeInfo, want: String): Boolean {
+        n.refresh()
+        val got = gatherText(n)
+        val needle = want.take(24)
+        return got.contains(needle)
+    }
+
+    private fun gatherText(n: AccessibilityNodeInfo): String = buildString {
+        fun walk(x: AccessibilityNodeInfo) {
+            x.text?.toString()?.let { append(it) }
+            for (i in 0 until x.childCount) x.getChild(i)?.let { walk(it) }
+        }
+        walk(n)
+    }
+
+    /** Target and its children first, then every editable field, compose-box ids and bottom-of-screen first. */
+    private fun editableFields(start: AccessibilityNodeInfo?): List<AccessibilityNodeInfo> {
+        val found = ArrayList<AccessibilityNodeInfo>()
+        val seen = HashSet<Int>()
+        fun collect(n: AccessibilityNodeInfo?) {
+            if (n == null) return
+            fun walk(x: AccessibilityNodeInfo) {
+                if (!seen.add(System.identityHashCode(x))) return
+                if (x.isEditable && x.isVisibleToUser && x.isEnabled && !x.isPassword) found += x
+                for (i in 0 until x.childCount) walk(x.getChild(i) ?: continue)
+            }
+            walk(n)
+        }
+        collect(start)
+        for (w in service.windows.orEmpty()) collect(w.root)
+        return found.distinctBy { it.viewIdResourceName ?: it.className?.toString() ?: it.toString() }
+            .sortedByDescending { scoreField(it) }
+    }
+
+    private fun scoreField(n: AccessibilityNodeInfo): Int {
+        val id = n.viewIdResourceName.orEmpty().lowercase()
+        val r = android.graphics.Rect().also { n.getBoundsInScreen(it) }
+        var s = r.top
+        if (n.isFocused) s += 10_000
+        if ("entry" in id || "compose" in id || "input" in id || "message" in id) s += 8_000
+        return s
+    }
+
     private fun setText(n: AccessibilityNodeInfo, text: String): ExecResult {
         if (n.isPassword) return ExecResult.error("password field")
-        if (!n.isFocused) n.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
-        val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text) }
-        if (n.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return ExecResult.OK
-        // Clipboard paste fallback: put the text on the clipboard, then ACTION_PASTE.
+        trySetText(n, text)
+        if (holdsText(n, text) || text.isEmpty()) return ExecResult.OK
         val cm = service.getSystemService(android.content.ClipboardManager::class.java)
-        cm?.setPrimaryClip(android.content.ClipData.newPlainText("tst-assist", text))
-        return if (n.performAction(AccessibilityNodeInfo.ACTION_PASTE)) {
-            // TM-012: do not leave the model's text sitting on the clipboard.
+        cm?.setPrimaryClip(android.content.ClipData.newPlainText("ezer", text))
+        val pasted = n.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+        if (pasted && (text.isEmpty() || holdsText(n, text))) {
             runCatching { cm?.clearPrimaryClip() }
-            ExecResult.OK
-        } else ExecResult.error("field refused text")
+            return ExecResult.OK
+        }
+        return ExecResult.error("field refused text")
     }
 
     private suspend fun scroll(n: AccessibilityNodeInfo, dir: Direction, bounds: Rect): ExecResult {

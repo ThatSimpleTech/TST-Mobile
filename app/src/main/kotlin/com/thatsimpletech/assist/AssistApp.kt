@@ -10,6 +10,7 @@ import com.thatsimpletech.assist.approval.OverlayCard
 import com.thatsimpletech.assist.audit.AndroidSqlExecutor
 import com.thatsimpletech.assist.core.audit.AuditStore
 import com.thatsimpletech.assist.config.ProviderSettings
+import com.thatsimpletech.assist.config.RunPrefs
 import com.thatsimpletech.assist.core.config.AssistConfig
 import com.thatsimpletech.assist.core.net.Endpoints
 import com.thatsimpletech.assist.core.policy.PolicyPack
@@ -60,6 +61,7 @@ object Graph {
             notifier = notifier,
             overlay = { AssistAccessibilityService.instance?.let { OverlayCard(it) } },
             timeoutSeconds = pack.approvalTimeoutSeconds,
+            auto = { RunPrefs.auto(app) },
         )
     }
 
@@ -77,7 +79,9 @@ object Graph {
     val rulesDir: File by lazy {
         val dir = File(app.filesDir, "rules").apply { mkdirs() }
         val assistant = File(dir, InstructionStack.DEVICE_FILE)
-        if (!assistant.exists()) assistant.writeText(DefaultInstructions.load())
+        // Sideload upgrades must replace the shipped copy; a stale first-run file was
+        // telling the model to ask about the GOAL.
+        assistant.writeText(DefaultInstructions.load())
         dir
     }
     val rulesBoundary: RulesBoundary by lazy { RulesBoundary(rulesDir.toPath()) }

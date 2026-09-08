@@ -14,7 +14,7 @@ version: 1
 
 approval_timeout_seconds: 45   # no answer is a deny
 max_tier2_per_turn: 1          # one sensitive action per turn, no chaining
-step_budget: 12                # actions per task before the loop stops and asks
+step_budget: 36                # open + find contact + type + send, with a few misses
 loop_repeat_limit: 3           # same action this many times in a row stops and asks
 
 # The app list is a label book (open "WhatsApp") and sensitive-id hints. Any installed

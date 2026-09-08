@@ -12,11 +12,12 @@ class ObservationTest {
 
     private fun node(
         id: String, role: Role, label: String = "", top: Int = 0, height: Int = 100,
+        left: Int = 0, width: Int = 1080,
         clickable: Boolean = role == Role.BTN, editable: Boolean = role == Role.EDIT,
         scrollable: Boolean = role == Role.LIST, focused: Boolean = false, items: Int? = null,
         meta: Map<String, String> = emptyMap(), window: Int = 0, layer: Int = 0, password: Boolean = false,
     ) = UiNode(
-        identity = id, role = role, bounds = Rect(0, top, 1080, top + height), label = label,
+        identity = id, role = role, bounds = Rect(left, top, left + width, top + height), label = label,
         clickable = clickable, editable = editable, scrollable = scrollable, focused = focused,
         itemCount = items, meta = meta, window = window, layer = layer, password = password,
     )
@@ -24,8 +25,8 @@ class ObservationTest {
     private fun whatsapp() = Screen(
         app = "com.whatsapp", activity = "Conversation", display = display,
         nodes = listOf(
-            node("edit", Role.EDIT, "Type a message", top = 2200, focused = true),
-            node("send", Role.BTN, "Send", top = 2300),
+            node("edit", Role.EDIT, "Type a message", top = 2200, left = 0, width = 800, focused = true),
+            node("send", Role.BTN, "Send", top = 2200, left = 900, width = 180),
             node("attach", Role.BTN, "Attach", top = 2300),
             node("list", Role.LIST, top = 200, height = 1900, items = 12),
             node("msg", Role.TEXT, "Hey are we still on for tonight?", top = 1900, clickable = false,
@@ -48,12 +49,12 @@ class ObservationTest {
         val lines = text.lines()
         assertEquals(ObservationFormatter.OPEN, lines[0])
         assertEquals("SCREEN app=com.whatsapp activity=Conversation fp=${obs.fp} coverage=ok keyguard=no", lines[1])
-        // Reading order: list first (top=200), then the message, then edit, then the two buttons.
-        assertEquals("[1] list scrollable items=12", lines[2])
-        assertEquals("[2] text \"Hey are we still on for tonight?\" from=Maria time=\"6:42 PM\"", lines[3])
-        assertEquals("[3] edit \"Type a message\" focused", lines[4])
-        assertEquals("[4] btn \"Send\"", lines[5])
-        assertEquals("[5] btn \"Attach\"", lines[6])
+        // Compact edit-row chrome first, each line carries @x,y percents of the display.
+        assertEquals("[3] edit \"Type a message\" focused @37,93", lines[2])
+        assertEquals("[4] btn \"Send\" @91,93", lines[3])
+        assertEquals("[5] btn \"Attach\" @50,97", lines[4])
+        assertEquals("[1] list scrollable items=12 @50,47", lines[5])
+        assertEquals("[2] text \"Hey are we still on for tonight?\" from=Maria time=\"6:42 PM\" @50,81", lines[6])
         assertEquals(ObservationFormatter.CLOSE, lines[7])
         assertEquals("GOAL: reply to Maria confirming 7pm", lines[8])
         assertEquals("STEP 3 of 12   LAST: type 1 \"Yes, see you at 7\" -> ok   TIER2 PENDING: tap 2 (tap)", lines[9])
@@ -121,7 +122,22 @@ class ObservationTest {
             (1..70).map { node("n$it", Role.BTN, "Row $it", top = it * 20) }
         val obs = ObservationBuilder().observe(Screen("com.big", "List", display, nodes))
         val text = ObservationFormatter.format(obs)
-        assertTrue(text.contains("[more 11 hidden: `scroll 1 down` or `more`]"), text)
+        assertTrue(text.contains("[more 11 hidden: `more`]"), text)
+    }
+
+    @Test
+    fun editAndSendStayOnPageOneWhenTheListIsLong() {
+        val nodes = (1..80).map { node("n$it", Role.TEXT, "msg $it", top = it * 10, clickable = false) } +
+            listOf(
+                node("edit", Role.EDIT, "Type a message", top = 2200, focused = true),
+                node("send", Role.BTN, "Send", top = 2200),
+            )
+        val obs = ObservationBuilder().observe(Screen("com.whatsapp", "Conversation", display, nodes))
+        val text = ObservationFormatter.format(obs)
+        assertTrue(text.contains("edit \"Type a message\""), text)
+        assertTrue(text.contains("btn \"Send\""), text)
+        assertTrue(obs.hidden > 0)
+        assertFalse(text.contains("`scroll "), text)
     }
 
     @Test

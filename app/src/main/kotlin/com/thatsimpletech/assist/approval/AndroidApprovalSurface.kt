@@ -14,6 +14,7 @@ class AndroidApprovalSurface(
     private val notifier: ApprovalNotifier,
     private val overlay: () -> OverlayCard?,
     private val timeoutSeconds: Int,
+    private val auto: () -> Boolean = { false },
 ) : ApprovalSurface {
 
     override suspend fun requestTaskGrant(goal: String, apps: Set<String>, verbs: Set<String>): Boolean =
@@ -34,6 +35,7 @@ class AndroidApprovalSurface(
         )
 
     private suspend fun ask(title: String, body: String, target: UiNode?): Boolean {
+        if (auto()) return true
         val (id, deferred) = ApprovalRequests.open()
         notifier.showApproval(id, title, body)
         val card = overlay()

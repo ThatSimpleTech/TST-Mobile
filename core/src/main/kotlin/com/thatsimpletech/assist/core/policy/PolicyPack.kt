@@ -54,7 +54,7 @@ data class PolicyPack(
     val version: Int,
     @SerialName("approval_timeout_seconds") val approvalTimeoutSeconds: Int = 45,
     @SerialName("max_tier2_per_turn") val maxTier2PerTurn: Int = 1,
-    @SerialName("step_budget") val stepBudget: Int = 12,
+    @SerialName("step_budget") val stepBudget: Int = 36,
     @SerialName("loop_repeat_limit") val loopRepeatLimit: Int = 3,
     val apps: List<AppEntry> = emptyList(),
     @SerialName("settings_packages") val settingsPackages: List<String> = emptyList(),

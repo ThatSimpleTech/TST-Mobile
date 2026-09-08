@@ -23,6 +23,8 @@ data class Observation(
     val fingerprint: String,
     /** Hint of the first scrollable node, offered in the `[more ...]` line. */
     val scrollHint: Int?,
+    val display: Rect,
+    val keyboard: Boolean = false,
 ) {
     val hints: Set<Int> get() = lines.mapTo(HashSet()) { it.hint }
     val fp: String get() = Fingerprint.short(fingerprint)
@@ -68,15 +70,22 @@ class ObservationBuilder(
         return build(screen)
     }
 
-    private fun pageCount(): Int = if (lastSelected.isEmpty()) 1 else (lastSelected.size + pageSize - 1) / pageSize
+    private fun pageCount(): Int {
+        val display = lastScreen?.display ?: return 1
+        val rest = lastSelected.count { !Spatial.chrome(it, lastSelected, display) }
+        return if (rest == 0) 1 else (rest + pageSize - 1) / pageSize
+    }
 
     private fun build(screen: Screen): Observation {
         val selected = lastSelected
-        val hints = hintTable.assign(selected)
-        val pages = pageCount()
+        val chrome = selected.filter { Spatial.chrome(it, selected, screen.display) }
+        val rest = selected.filter { it !in chrome }
+        val restPages = if (rest.isEmpty()) 1 else (rest.size + pageSize - 1) / pageSize
         val from = page * pageSize
-        val to = minOf(selected.size, from + pageSize)
-        val shown = if (from < selected.size) selected.subList(from, to) else emptyList()
+        val to = minOf(rest.size, from + pageSize)
+        val shownRest = if (from < rest.size) rest.subList(from, to) else emptyList()
+        val shown = chrome + shownRest
+        val hints = hintTable.assign(selected)
         val lines = shown.map { NodeLine(hints.getValue(it.identity), it) }
         val fingerprint = Fingerprint.of(screen.app, screen.activity, selected.map { it.identity })
         return Observation(
@@ -86,11 +95,13 @@ class ObservationBuilder(
             secure = screen.secure,
             coverage = coverage.assess(screen, selected),
             lines = lines,
-            hidden = selected.size - shown.size,
+            hidden = rest.size - shownRest.size,
             page = page + 1,
-            pages = pages,
+            pages = restPages,
             fingerprint = fingerprint,
             scrollHint = shown.firstOrNull { it.scrollable }?.let { hints[it.identity] },
+            display = screen.display,
+            keyboard = screen.windows.any { it.kind == WindowKind.IME },
         )
     }
 
@@ -117,18 +128,17 @@ object ObservationFormatter {
             .append(" coverage=").append(obs.coverage.level.word)
             .append(" keyguard=").append(if (obs.keyguard) "yes" else "no")
         if (obs.secure) sb.append(" secure=yes")
+        if (obs.keyboard) sb.append(" kbd=yes")
         if (obs.pages > 1) sb.append(" page=").append(obs.page).append('/').append(obs.pages)
         sb.append('\n')
         if (obs.coverage.level != CoverageLevel.OK && obs.coverage.reason.isNotEmpty()) {
             sb.append("NOTE ").append(clean(obs.coverage.reason, MAX_LABEL)).append('\n')
         }
         for (line in obs.lines) {
-            sb.append(renderLine(line, codec)).append('\n')
+            sb.append(renderLine(line, codec, obs.display)).append('\n')
         }
         if (obs.hidden > 0) {
-            sb.append("[more ").append(obs.hidden).append(" hidden: ")
-            if (obs.scrollHint != null) sb.append("`scroll ").append(codec.encode(obs.scrollHint)).append(" down` or ")
-            sb.append("`more`]").append('\n')
+            sb.append("[more ").append(obs.hidden).append(" hidden: `more`]\n")
         }
         sb.append(CLOSE)
         if (trailer != null) {
@@ -137,11 +147,12 @@ object ObservationFormatter {
         return sb.toString()
     }
 
-    fun renderLine(line: NodeLine, codec: HintCodec = HintCodec.Numeric): String {
+    fun renderLine(line: NodeLine, codec: HintCodec = HintCodec.Numeric, display: Rect? = null): String {
         val n = line.node
         val sb = StringBuilder()
         sb.append('[').append(codec.encode(line.hint)).append("] ").append(n.role.word)
-        if (n.label.isNotBlank()) sb.append(' ').append(quote(n.label))
+        val shown = Spatial.shownLabel(n)
+        if (shown.isNotBlank()) sb.append(' ').append(quote(shown))
         if (n.focused) sb.append(" focused")
         if (n.scrollable) sb.append(" scrollable")
         if (n.checkable) sb.append(if (n.checked) " on" else " off")
@@ -152,6 +163,8 @@ object ObservationFormatter {
             val cv = clean(v, MAX_LABEL)
             if (cv.any { it.isWhitespace() }) sb.append(quote(cv)) else sb.append(cv)
         }
+        val at = display?.let { Spatial.at(n, it) }.orEmpty()
+        if (at.isNotEmpty()) sb.append(' ').append(at)
         return sb.toString()
     }
 

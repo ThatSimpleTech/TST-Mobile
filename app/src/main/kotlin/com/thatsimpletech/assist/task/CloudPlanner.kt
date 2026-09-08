@@ -26,28 +26,34 @@ class CloudPlanner(
             return "ask \"The spend cap of \$${"%.2f".format(spendCapUsd)} is reached. Raise it in the app to continue.\""
         }
         meter.beginTurn()
-        val result = try {
-            client.chat(
-                messages = listOf(
-                    ChatMessage("system", "Reply with exactly one action line from the grammar, after any thinking. The action line must appear in the message content. No prose."),
-                    ChatMessage("user", prompt),
-                ),
-                maxTokens = MAX_ACTION_TOKENS,
-                temperature = 0.0,
+        var lastError: Exception? = null
+        repeat(2) { attempt ->
+            val result = try {
+                client.chat(
+                    messages = listOf(
+                        ChatMessage("system", "Reply with exactly one action line from the grammar, after any thinking. The person already confirmed the GOAL by tapping Run. Use @x,y percents to pick the right control. Keyboard keys are not in the list. After type, tap the button to the right of the focused edit (higher x, same y). Never done while that button is still the next step. The action line must appear in the message content. No prose."),
+                        ChatMessage("user", prompt),
+                    ),
+                    maxTokens = MAX_ACTION_TOKENS,
+                    temperature = 0.0,
+                )
+            } catch (e: java.io.InterruptedIOException) {
+                lastError = e
+                return@repeat
+            } catch (e: Exception) {
+                return "ask \"The model call failed: ${Redactor.throwableMessage(e).replace('"', '\'')}\""
+            }
+            if (result.text.isBlank()) {
+                return "ask \"The model returned an empty action (thinking used the token budget). Retry.\""
+            }
+            meter.record(
+                tierName, client.model,
+                Usage(result.usage.promptTokens, result.usage.cachedPromptTokens, result.usage.completionTokens),
+                tier,
             )
-        } catch (e: Exception) {
-            // The reason reaches the person as a question, never as a stack trace, and never with a key in it.
-            return "ask \"The model call failed: ${Redactor.throwableMessage(e).replace('"', '\'')}\""
+            return result.text
         }
-        if (result.text.isBlank()) {
-            return "ask \"The model returned an empty action (thinking used the token budget). Retry.\""
-        }
-        meter.record(
-            tierName, client.model,
-            Usage(result.usage.promptTokens, result.usage.cachedPromptTokens, result.usage.completionTokens),
-            tier,
-        )
-        return result.text
+        return "ask \"EZER box timed out waiting for a reply (attempt ${(lastError?.message ?: "timeout")}). Phone and box both need Tailscale; LiteLLM must be up on :4000. Then Run again.\""
     }
 
     companion object {

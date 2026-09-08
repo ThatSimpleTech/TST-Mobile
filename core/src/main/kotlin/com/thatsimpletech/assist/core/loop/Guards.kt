@@ -4,7 +4,7 @@ import com.thatsimpletech.assist.core.policy.PolicyPack
 
 /**
  * Plan M2: a weak model must not run forever. The budget counts model calls per task;
- * the value comes from the policy pack (step_budget, default 12), never from the model.
+ * the value comes from the policy pack (step_budget, default 36), never from the model.
  */
 class StepBudget(val limit: Int) {
     init {

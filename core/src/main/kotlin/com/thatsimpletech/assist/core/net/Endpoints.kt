@@ -17,7 +17,12 @@ class HostNotNamedException(val host: String) : IOException("refusing connection
  * did go out is on a list the tests read. `NoConnectionOutsideEndpointsTest` keeps the rest
  * of core from growing a second door.
  */
-class Endpoints(allowedHosts: Set<String>, private val timeout: Long = 60, private val unit: TimeUnit = TimeUnit.SECONDS) {
+class Endpoints(
+    allowedHosts: Set<String>,
+    private val timeout: Long = 20,
+    private val unit: TimeUnit = TimeUnit.SECONDS,
+    private val readTimeout: Long = 180,
+) {
     private val allowed: Set<String> = allowedHosts.map { it.trim().lowercase() }.toSet()
     private val seen = CopyOnWriteArrayList<String>()
     private val blocked = CopyOnWriteArrayList<String>()
@@ -33,8 +38,9 @@ class Endpoints(allowedHosts: Set<String>, private val timeout: Long = 60, priva
     /** A client for plain requests. Redirects are not followed: a 302 to a stranger must not open a socket. */
     fun httpClient(): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(timeout, unit)
-        .readTimeout(timeout, unit)
+        .readTimeout(readTimeout, unit)
         .writeTimeout(timeout, unit)
+        .callTimeout(readTimeout + timeout, unit)
         .followRedirects(false)
         .followSslRedirects(false)
         .addInterceptor(gate)

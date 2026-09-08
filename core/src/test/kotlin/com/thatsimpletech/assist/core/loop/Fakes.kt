@@ -112,11 +112,12 @@ object Screens {
 
     fun node(
         id: String, role: Role, label: String = "", top: Int = 0, height: Int = 100,
+        left: Int = 0, width: Int = 1080,
         clickable: Boolean = role == Role.BTN, editable: Boolean = role == Role.EDIT,
         scrollable: Boolean = role == Role.LIST, focused: Boolean = false,
         meta: Map<String, String> = emptyMap(),
     ) = UiNode(
-        identity = id, role = role, bounds = Rect(0, top, 1080, top + height), label = label,
+        identity = id, role = role, bounds = Rect(left, top, left + width, top + height), label = label,
         clickable = clickable, editable = editable, scrollable = scrollable, focused = focused, meta = meta,
     )
 
@@ -126,8 +127,8 @@ object Screens {
         nodes = listOf(
             node("list", Role.LIST, top = 200, height = 1900),
             node("msg", Role.TEXT, "Hey are we still on for tonight?", top = 1900, clickable = false, meta = mapOf("from" to "Maria")),
-            node("edit", Role.EDIT, "Type a message", top = 2200, focused = true),
-            node("send", Role.BTN, "Send", top = 2300),
+            node("edit", Role.EDIT, "Type a message", top = 2200, left = 0, width = 800, focused = true),
+            node("send", Role.BTN, "Send", top = 2200, left = 900, width = 180),
             node("attach", Role.BTN, "Attach", top = 2300),
         ),
     )

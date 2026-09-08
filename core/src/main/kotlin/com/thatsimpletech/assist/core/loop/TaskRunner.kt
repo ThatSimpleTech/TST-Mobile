@@ -7,6 +7,7 @@ import com.thatsimpletech.assist.core.observe.LastResult
 import com.thatsimpletech.assist.core.observe.Observation
 import com.thatsimpletech.assist.core.observe.ObservationBuilder
 import com.thatsimpletech.assist.core.observe.ObservationFormatter
+import com.thatsimpletech.assist.core.observe.Spatial
 import com.thatsimpletech.assist.core.observe.Trailer
 import com.thatsimpletech.assist.core.policy.Decision
 import com.thatsimpletech.assist.core.policy.Gate
@@ -56,6 +57,8 @@ class TaskRunner(
         var taskGranted = false
         val confirmedApps = LinkedHashSet<String>()
         var tier2ThisTurn = 0
+        var drafted = false
+        var submitted = false
 
         fun end(outcome: Outcome): Outcome {
             listener?.onEnd(outcome)
@@ -121,10 +124,23 @@ class TaskRunner(
 
             when (action) {
                 is Action.Done -> {
+                    val submit = Spatial.trailingButton(obs)
+                    if (drafted && !submitted && submit != null) {
+                        listener?.onStep(step, obs, reply, parsed, null, null)
+                        last = LastResult(action, ok = false, detail = "the box still has [${submit.hint}] ${submit.node.role.word} ${Spatial.at(submit.node, obs.display)} to its right; tap ${submit.hint} before done")
+                        lastAction = action
+                        continue
+                    }
                     listener?.onStep(step, obs, reply, parsed, null, null)
                     return end(Outcome.Done(action.summary))
                 }
                 is Action.Ask -> {
+                    if (GoalAsk.restates(action.question, goal)) {
+                        listener?.onStep(step, obs, reply, parsed, null, null)
+                        last = LastResult(action, ok = false, detail = "the GOAL is already approved; take an action. ask is only for a missing fact")
+                        lastAction = action
+                        continue
+                    }
                     listener?.onStep(step, obs, reply, parsed, null, null)
                     return end(Outcome.Ask(action.question))
                 }
@@ -203,6 +219,9 @@ class TaskRunner(
             listener?.onStep(step, obs, reply, parsed, decision, result)
             if (countsAsTier2) tier2ThisTurn++
             clearFailures()
+            if (result.ok && action is Action.Type) drafted = true
+            if (result.ok && action is Action.Tap && target != null &&
+                Spatial.trailingButton(obs)?.node?.identity == target.identity) submitted = true
             last = LastResult(action, result.ok, result.detail)
             lastAction = action
         }

@@ -54,11 +54,12 @@ class InjectionSuiteTest {
     @Test
     fun hostileScreenTextStaysInsideOneQuotedLineAndTheRealGoalIsTheOnlyGoal() {
         val (outcome, executor, planner) = run(
-            replies = listOf("type 3 \"Yes, see you at 7\"", "done \"replied\""),
+            replies = listOf("type 3 \"Yes, see you at 7\"", "tap 4", "done \"replied\""),
             screens = listOf(hostileScreen()),
+            cards = listOf(true),
         )
         assertEquals(Outcome.Done("replied"), outcome)
-        assertEquals(listOf(Action.Type(3, "Yes, see you at 7")), executor.actions)
+        assertEquals(listOf(Action.Type(3, "Yes, see you at 7"), Action.Tap(4)), executor.actions)
 
         val prompt = planner.prompts[0]
         val lines = prompt.lines()
