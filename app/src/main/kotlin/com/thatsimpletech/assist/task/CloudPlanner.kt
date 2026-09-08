@@ -11,20 +11,16 @@ import com.thatsimpletech.assist.core.redact.Redactor
 
 /**
  * Cloud-key and Home (vLLM) modes: one OpenAI-compatible chat call per step, brain tier only
- * (plan §9.3 M6). Every call is metered; when the spend cap is hit the planner answers with
- * an `ask` line so the loop ends the turn cleanly instead of spending more.
+ * (plan §9.3 M6). Every call is metered. The spend cap is owned by the loop ([com.thatsimpletech.assist.core.loop.Outcome.Paused]),
+ * not synthesized here as an `ask` line (TM-017).
  */
 class CloudPlanner(
     private val client: ProviderClient,
     private val meter: CostTracker,
     private val tier: TierConfig,
     private val tierName: TierName = TierName.BRAIN,
-    private val spendCapUsd: Double?,
 ) : Planner {
     override suspend fun next(prompt: String): String {
-        if (meter.capExceeded(spendCapUsd)) {
-            return "ask \"The spend cap of \$${"%.2f".format(spendCapUsd)} is reached. Raise it in the app to continue.\""
-        }
         meter.beginTurn()
         val result = try {
             client.chat(

@@ -38,6 +38,8 @@ class TaskRunner(
     private val listener: RunListener? = null,
     private val budget: StepBudget = StepBudget.of(enforcer.pack),
     private val loopRepeatLimit: Int = enforcer.pack.loopRepeatLimit,
+    private val spend: SpendGuard? = null,
+    private val validator: EndStateValidator? = null,
 ) {
     /** The kinds of model failure that end the run when they happen twice in a row. */
     private enum class Failure { PARSE, REFUSED, DENIED }
@@ -81,6 +83,16 @@ class TaskRunner(
             step++
             if (kill.killed) return end(Outcome.Stopped(KILLED))
             if (!budget.allows(step)) return end(Outcome.Stopped("step budget of ${budget.limit} used up"))
+            spend?.snapshot()?.takeIf { it.exceeded }?.let { snap ->
+                val cap = snap.capUsd ?: 0.0
+                return end(
+                    Outcome.Paused(
+                        reason = "the spend cap of \$${"%.2f".format(cap)} is reached",
+                        spentUsd = snap.spentUsd,
+                        capUsd = cap,
+                    ),
+                )
+            }
 
             // `more` pages the screen the model already saw; anything else looks again.
             val obs: Observation = if (lastAction == Action.More) {
@@ -93,7 +105,7 @@ class TaskRunner(
 
             val prompt = buildString {
                 append(instructions).append("\n\n")
-                append(ObservationFormatter.format(obs, Trailer(goal, step, budget.limit, last, tier2Pending)))
+                append(ObservationFormatter.format(obs, Trailer(goal, step, budget.limit, last, tier2Pending), parser.codec))
                 // A parse error has no action to put in LAST, so the reason rides the STEP line by itself.
                 parseNote?.let { append("   LAST: error ").append(ObservationFormatter.clean(it, 120)) }
             }
@@ -122,7 +134,11 @@ class TaskRunner(
             when (action) {
                 is Action.Done -> {
                     listener?.onStep(step, obs, reply, parsed, null, null)
-                    return end(Outcome.Done(action.summary))
+                    if (validator == null) return end(Outcome.Done(action.summary))
+                    return when (val v = validator.validate(goal, obs, goalApps)) {
+                        is Validation.Pass -> end(Outcome.Done(action.summary))
+                        is Validation.Fail -> end(Outcome.Stopped("end state ${v.reason}"))
+                    }
                 }
                 is Action.Ask -> {
                     listener?.onStep(step, obs, reply, parsed, null, null)
@@ -191,8 +207,9 @@ class TaskRunner(
                 listener?.onStep(step, obs, reply, parsed, decision, null)
                 return end(Outcome.Stopped(KILLED))
             }
-            // C3: the hint was planned against one screen; execute only against that same screen.
-            if (observer.fingerprint() != obs.fingerprint) {
+            // C3: hint verbs were planned against one screen; execute only against that same
+            // screen. Intent / device / partner / qs carry empty hints and do not target a node.
+            if (action.hints.isNotEmpty() && observer.fingerprint() != obs.fingerprint) {
                 listener?.onStep(step, obs, reply, parsed, decision, null)
                 last = LastResult(action, ok = false, detail = "screen changed, look again")
                 lastAction = null

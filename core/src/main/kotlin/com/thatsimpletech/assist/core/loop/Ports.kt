@@ -19,6 +19,9 @@ interface Observer {
 /** The brain. Gets the whole prompt, returns the model's reply text. */
 interface Planner {
     suspend fun next(prompt: String): String
+
+    /** One metered brain call, not a loop step. Default empty so ScriptedPlanner stays valid. */
+    suspend fun planGoalApps(goal: String): Set<String> = emptySet()
 }
 
 data class ExecResult(val ok: Boolean, val detail: String = "") {
@@ -48,4 +51,24 @@ interface ApprovalSurface {
 /** The kill switch: persistent-notification action and Quick Settings tile. Polled before every step. */
 interface KillSwitch {
     val killed: Boolean
+}
+
+/** Session spend vs the cap. The loop polls this before each planner call (TM-017). */
+fun interface SpendGuard {
+    fun snapshot(): SpendSnapshot
+}
+
+data class SpendSnapshot(val exceeded: Boolean, val spentUsd: Double, val capUsd: Double?)
+
+/**
+ * After `done`, compare the last screen to the goal. Null on the runner keeps today's
+ * [Outcome.Done]. Workstream M supplies the implementation.
+ */
+interface EndStateValidator {
+    suspend fun validate(goal: String, last: Observation, goalApps: Set<String>): Validation
+}
+
+sealed class Validation {
+    data object Pass : Validation()
+    data class Fail(val reason: String) : Validation()
 }

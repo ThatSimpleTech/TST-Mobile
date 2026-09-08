@@ -14,14 +14,25 @@ import com.thatsimpletech.assist.core.policy.Decision
 /** Test doubles for the loop ports. Everything is scripted or recorded; nothing is clever. */
 
 /** Replies in order; a script that runs dry is a test bug, not a model answer. */
-class ScriptedPlanner(private val replies: List<String>, private val onCall: (Int) -> Unit = {}) : Planner {
+class ScriptedPlanner(
+    private val replies: List<String>,
+    private val onCall: (Int) -> Unit = {},
+    private val goalApps: Set<String> = emptySet(),
+) : Planner {
     val prompts = ArrayList<String>()
+    var planGoalAppsCalls = 0
+        private set
 
     override suspend fun next(prompt: String): String {
         prompts += prompt
         val i = prompts.size - 1
         onCall(i)
         return replies.getOrNull(i) ?: error("planner script exhausted at call ${i + 1}")
+    }
+
+    override suspend fun planGoalApps(goal: String): Set<String> {
+        planGoalAppsCalls++
+        return goalApps
     }
 }
 

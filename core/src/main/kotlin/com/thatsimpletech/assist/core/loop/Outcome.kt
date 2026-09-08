@@ -17,6 +17,12 @@ sealed class Outcome {
      * consecutive model failure, a denied grant. [reason] is plain words for the person.
      */
     data class Stopped(val reason: String) : Outcome()
+
+    /**
+     * Session spend reached the cap (TM-017). No further provider call. Raising the cap
+     * and running again is a new task; there is no in-session resume in M2.
+     */
+    data class Paused(val reason: String, val spentUsd: Double, val capUsd: Double) : Outcome()
 }
 
 enum class ApprovalKind { TASK_GRANT, CARD }

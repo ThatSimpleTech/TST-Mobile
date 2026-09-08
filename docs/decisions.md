@@ -145,3 +145,9 @@ Calls, texts, and calendar events open a system composer. They do not complete t
 
 These are the §15 Q2 / Q3 / Q4 defaults (and Q12: no second-card `ACTION_CALL` / `SmsManager` in M2).
 
+## TM-017 (2026-09-08) Spend cap is Outcome.Paused, loop-owned, session-scoped
+
+Hitting `AssistConfig.spendCapUsd` pauses the session: no further provider call, `Outcome.Paused`, chip and notification say so. It is not an `ask` line from the model. `CloudPlanner` used to synthesize `ask "The spend cap…"` which became `Outcome.Ask` and lied — the person did not get a brain question.
+
+The loop owns the pause. `SpendGuard` reads `CostTracker.sessionCost()` against the cap at the top of each step, before `planner.next`. Day spend is display-only. Classifier / validator-as-classifier calls already sit off `sessionCost()` (`CostTracker.record(..., isClassifier = true)`), so a validator ping cannot itself trip the cap. Raising the cap and running again is a new `TaskController.run`; there is no in-session resume in M2.
+

@@ -6,6 +6,8 @@ import com.thatsimpletech.assist.a11y.NodeExecutor
 import com.thatsimpletech.assist.a11y.TreeObserver
 import com.thatsimpletech.assist.core.grammar.ActionParser
 import com.thatsimpletech.assist.core.loop.Outcome
+import com.thatsimpletech.assist.core.loop.SpendGuard
+import com.thatsimpletech.assist.core.loop.SpendSnapshot
 import com.thatsimpletech.assist.core.loop.TaskRunner
 import com.thatsimpletech.assist.core.meter.CostTracker
 import com.thatsimpletech.assist.core.observe.ObservationBuilder
@@ -43,11 +45,19 @@ object TaskController {
         val sessionId = UUID.randomUUID().toString()
         val audit = Graph.audit
         audit.startSession(sessionId, Graph.deviceId, choice.mode, goal)
+        val capUsd = Graph.config.spendCapUsd
         val runner = TaskRunner(
             observer = observer, planner = planner, executor = executor, approvals = Graph.approvals,
             kill = GlobalKillSwitch, enforcer = enforcer, builder = ObservationBuilder(),
             parser = ActionParser(), instructions = Graph.instructions(),
             listener = AuditListener(audit, sessionId, meter, Graph.clock),
+            spend = SpendGuard {
+                SpendSnapshot(
+                    exceeded = meter.capExceeded(capUsd),
+                    spentUsd = meter.sessionCost(),
+                    capUsd = capUsd,
+                )
+            },
         )
         onMeter(meterChip(meter))
         val goalApps = GoalApps.infer(goal, pack)
@@ -55,6 +65,7 @@ object TaskController {
             is Outcome.Done -> "done: ${outcome.summary}"
             is Outcome.Ask -> "question: ${outcome.question}"
             is Outcome.Stopped -> "stopped: ${outcome.reason}"
+            is Outcome.Paused -> "paused: ${outcome.reason}"
         } + "  ·  " + meterChip(meter)
     }
 

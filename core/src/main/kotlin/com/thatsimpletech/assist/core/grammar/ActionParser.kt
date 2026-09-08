@@ -13,7 +13,7 @@ sealed interface ParseResult {
  * Strict parser for the closed grammar. First non-empty line only; unknown verbs and
  * hints that are not on the current screen are errors, never guesses.
  */
-class ActionParser(private val codec: HintCodec = HintCodec.Numeric) {
+class ActionParser(val codec: HintCodec = HintCodec.Numeric) {
 
     /**
      * @param raw the model's whole reply
