@@ -9,7 +9,10 @@ sealed class Outcome {
     /** The model said `done`. */
     data class Done(val summary: String) : Outcome()
 
-    /** The model said `ask`; the turn ends and the person answers. */
+    /**
+     * The model said `ask`, or the end-state validator failed (TM-018 / Q6). The turn
+     * ends and the person answers. This is not success.
+     */
     data class Ask(val question: String) : Outcome()
 
     /**

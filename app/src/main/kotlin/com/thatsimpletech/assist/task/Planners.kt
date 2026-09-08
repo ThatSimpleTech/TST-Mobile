@@ -3,7 +3,11 @@ package com.thatsimpletech.assist.task
 import com.thatsimpletech.assist.Graph
 import com.thatsimpletech.assist.config.ProviderSettings
 import com.thatsimpletech.assist.core.config.EndpointKind
+import com.thatsimpletech.assist.core.config.TierConfig
 import com.thatsimpletech.assist.core.config.TierName
+import com.thatsimpletech.assist.core.loop.CompositeEndStateValidator
+import com.thatsimpletech.assist.core.loop.EndStateValidator
+import com.thatsimpletech.assist.core.loop.ModelEndStateValidator
 import com.thatsimpletech.assist.core.loop.Planner
 import com.thatsimpletech.assist.core.meter.CostTracker
 import com.thatsimpletech.assist.core.net.ProviderClient
@@ -39,6 +43,37 @@ object Planners {
                 Choice(CloudPlanner(client, meter, tier, TierName.BRAIN, Graph.pack), mode(tier.kind), "")
             }
         }
+    }
+
+    /**
+     * Deterministic end-state gate always; a validator-tier model call only when that
+     * client can be built. Missing key / device mode / locked store → deterministic only.
+     */
+    fun endStateValidator(meter: CostTracker): EndStateValidator =
+        CompositeEndStateValidator(model = modelValidator(meter))
+
+    private fun modelValidator(meter: CostTracker): ModelEndStateValidator? {
+        val tier = Graph.config.tier(TierName.VALIDATOR)
+        val client = clientFor(tier) ?: return null
+        return ModelEndStateValidator(client, meter, tier)
+    }
+
+    /** Optional: null when the tier cannot open a socket or has no slug/key. */
+    private fun clientFor(tier: TierConfig): ProviderClient? {
+        if (tier.kind == EndpointKind.ON_DEVICE) return null
+        val slug = tier.slug ?: return null
+        val credentialId = tier.credentialId
+        val key = if (credentialId == null) {
+            null
+        } else {
+            try {
+                Graph.secrets.get(SecretStore.account(credentialId))
+            } catch (_: SecretStoreLockedException) {
+                return null
+            }
+        }
+        if (key == null && Graph.provider.requiresKey) return null
+        return ProviderClient(Graph.endpoints, tier.baseUrl, key, slug)
     }
 
     private fun mode(kind: EndpointKind) = when (kind) {

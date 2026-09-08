@@ -61,8 +61,8 @@ fun interface SpendGuard {
 data class SpendSnapshot(val exceeded: Boolean, val spentUsd: Double, val capUsd: Double?)
 
 /**
- * After `done`, compare the last screen to the goal. Null on the runner keeps today's
- * [Outcome.Done]. Workstream M supplies the implementation.
+ * After `done`, compare the last screen to the goal (TM-018). Null on the runner keeps
+ * today's [Outcome.Done]. Fail is [Outcome.Ask], not success (Q6).
  */
 interface EndStateValidator {
     suspend fun validate(goal: String, last: Observation, goalApps: Set<String>): Validation

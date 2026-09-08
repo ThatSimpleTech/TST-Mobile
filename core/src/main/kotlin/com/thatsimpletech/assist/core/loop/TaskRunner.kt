@@ -137,7 +137,7 @@ class TaskRunner(
                     if (validator == null) return end(Outcome.Done(action.summary))
                     return when (val v = validator.validate(goal, obs, goalApps)) {
                         is Validation.Pass -> end(Outcome.Done(action.summary))
-                        is Validation.Fail -> end(Outcome.Stopped("end state ${v.reason}"))
+                        is Validation.Fail -> end(validatorFail(v.reason))
                     }
                 }
                 is Action.Ask -> {
@@ -232,5 +232,12 @@ class TaskRunner(
         /** The verb keys the one Tier 1 card covers: every verb a `once` rule names. */
         fun tier1Verbs(pack: PolicyPack): Set<String> =
             pack.rules.filter { it.tier == Tier.ONCE_PER_TASK }.flatMap { it.`when`.verb.orEmpty() }.toSet()
+
+        /**
+         * Q6: a failed validator is Ask, not Done. One return so flipping back to D4
+         * (`Outcome.Stopped("end state: $reason")`) is a one-line change.
+         */
+        internal fun validatorFail(reason: String): Outcome =
+            Outcome.Ask("The end state does not match the goal: $reason")
     }
 }

@@ -1,10 +1,14 @@
 package com.thatsimpletech.assist.core.loop
 
+import com.thatsimpletech.assist.core.config.AssistConfig
 import com.thatsimpletech.assist.core.grammar.Action
 import com.thatsimpletech.assist.core.grammar.ActionParser
 import com.thatsimpletech.assist.core.grammar.Direction
 import com.thatsimpletech.assist.core.grammar.HintCodec
 import com.thatsimpletech.assist.core.grammar.ParseResult
+import com.thatsimpletech.assist.core.meter.CostTracker
+import com.thatsimpletech.assist.core.net.ChatResult
+import com.thatsimpletech.assist.core.net.ProviderUsage
 import com.thatsimpletech.assist.core.observe.ObservationBuilder
 import com.thatsimpletech.assist.core.observe.ObservationFormatter
 import com.thatsimpletech.assist.core.observe.Role
@@ -267,6 +271,58 @@ class TaskRunnerTest {
         val rig = Rig(replies = listOf("done \"all good\""), screens = listOf(Screens.whatsapp()))
         assertEquals(Outcome.Done("all good"), run(rig, validator = null))
         assertEquals(listOf<Outcome>(Outcome.Done("all good")), rig.listener.ends)
+    }
+
+    @Test
+    fun donePlusFailedValidatorIsAsk() {
+        val validator = RecordingValidator(Validation.Fail("ended in com.google.android.gm, not a goal app"))
+        val rig = Rig(replies = listOf("done \"Replied to Maria\""), screens = listOf(Screens.gmail()))
+        val outcome = run(rig, validator = validator)
+        assertEquals(
+            Outcome.Ask("The end state does not match the goal: ended in com.google.android.gm, not a goal app"),
+            outcome,
+        )
+        assertEquals(1, validator.calls)
+        assertTrue(rig.executor.calls.isEmpty())
+        assertEquals(listOf<Outcome>(outcome), rig.listener.ends)
+    }
+
+    @Test
+    fun donePlusPassedValidatorIsDone() {
+        val validator = RecordingValidator(Validation.Pass)
+        val rig = Rig(replies = listOf("done \"Replied to Maria\""), screens = listOf(Screens.whatsapp()))
+        assertEquals(Outcome.Done("Replied to Maria"), run(rig, validator = validator))
+        assertEquals(1, validator.calls)
+        assertEquals(listOf<Outcome>(Outcome.Done("Replied to Maria")), rig.listener.ends)
+    }
+
+    @Test
+    fun validatorIsNotCalledOnAskOrStopped() {
+        val validator = RecordingValidator()
+        val ask = Rig(replies = listOf("ask \"Need the time?\""), screens = listOf(Screens.whatsapp()))
+        assertEquals(Outcome.Ask("Need the time?"), run(ask, validator = validator))
+        assertEquals(0, validator.calls)
+
+        val stopped = Rig(replies = listOf("Sure thing", "OK here goes"), screens = listOf(Screens.whatsapp()))
+        assertIs<Outcome.Stopped>(run(stopped, validator = validator))
+        assertEquals(0, validator.calls)
+    }
+
+    @Test
+    fun validatorCallIsClassifierOnTheMeter() {
+        val meter = CostTracker()
+        val prices = AssistConfig.loadDefault().active.validator
+        val model = ModelEndStateValidator(
+            complete = { ChatResult("pass", ProviderUsage(1000, null, 10)) },
+            meter = meter,
+            prices = prices,
+            model = "v",
+        )
+        val rig = Rig(replies = listOf("done \"Replied to Maria\""), screens = listOf(Screens.whatsapp()))
+        assertEquals(Outcome.Done("Replied to Maria"), run(rig, validator = CompositeEndStateValidator(model)))
+        assertEquals(0.0, meter.sessionCost())
+        assertTrue(meter.classifierCost() > 0.0)
+        assertTrue(meter.costByTier().isEmpty())
     }
 
     @Test

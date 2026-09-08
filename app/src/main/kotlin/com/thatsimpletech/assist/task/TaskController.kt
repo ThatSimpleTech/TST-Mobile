@@ -57,6 +57,7 @@ object TaskController {
                     capUsd = capUsd,
                 )
             },
+            validator = Planners.endStateValidator(meter),
         )
         onMeter(meterChip(meter))
         val emitted = planner.planGoalApps(goal)

@@ -97,6 +97,17 @@ class ScriptedApprovals(private val taskGrant: Boolean = true, cards: List<Boole
 
 class FakeKill(override var killed: Boolean = false) : KillSwitch
 
+/** Scripted [EndStateValidator]; [calls] is how many times `done` reached it. */
+class RecordingValidator(private val result: Validation = Validation.Pass) : EndStateValidator {
+    var calls = 0
+        private set
+
+    override suspend fun validate(goal: String, last: Observation, goalApps: Set<String>): Validation {
+        calls++
+        return result
+    }
+}
+
 class RecordingListener : RunListener {
     data class Step(val step: Int, val observation: Observation, val reply: String, val parsed: ParseResult, val decision: Decision?, val result: ExecResult?)
 

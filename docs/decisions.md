@@ -157,3 +157,9 @@ Production no longer uses `GoalApps.infer` as the only source of the intent lock
 
 When the planner returns empty (`apps none`, prose, HTTP failure), `GoalApps.infer` is the fallback (Q8). Infer itself stays empty when the goal names no allowlisted label.
 
+## TM-018 (2026-09-08) End-state validator; fail is not Done
+
+After `done`, a validator compares the last observation to the goal. Deterministic gates always run (wrong app, secure screen; empty no-a11y observations pass). A model check on the validator tier is optional, fail-closed on garbage, and recorded `isClassifier = true` so it cannot trip the spend cap. Per-step calls stay brain-only; there is no three-tier-per-step router.
+
+A failed validator is not `Outcome.Done`. Q6 maps fail to `Outcome.Ask` with the reason so the person can confirm or re-run. This overrides D4 (`Outcome.Stopped`). A null validator on the runner keeps today's `Outcome.Done`.
+
