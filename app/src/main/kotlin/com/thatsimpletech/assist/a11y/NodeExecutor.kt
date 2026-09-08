@@ -2,6 +2,7 @@ package com.thatsimpletech.assist.a11y
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.Context
 import android.content.Intent
 import android.graphics.Path
 import android.os.Bundle
@@ -10,12 +11,19 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import com.thatsimpletech.assist.core.grammar.Action
 import com.thatsimpletech.assist.core.grammar.Direction
 import com.thatsimpletech.assist.core.grammar.SwipeTarget
+import com.thatsimpletech.assist.core.intent.EventTimes
+import com.thatsimpletech.assist.core.intent.PhoneIntents
+import com.thatsimpletech.assist.core.intent.SettingsIntents
 import com.thatsimpletech.assist.core.loop.ExecResult
 import com.thatsimpletech.assist.core.loop.Executor
 import com.thatsimpletech.assist.core.observe.Observation
 import com.thatsimpletech.assist.core.observe.Rect
 import com.thatsimpletech.assist.core.observe.UiNode
 import com.thatsimpletech.assist.core.policy.PolicyPack
+import com.thatsimpletech.assist.device.DeviceControls
+import com.thatsimpletech.assist.intent.IntentExecutor
+import com.thatsimpletech.assist.media.SessionMedia
+import com.thatsimpletech.assist.partner.PartnerRouter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -26,10 +34,15 @@ import kotlin.coroutines.resume
  * execution time; if it is gone, the action fails instead of tapping whatever moved there.
  */
 class NodeExecutor(
-    private val service: AccessibilityService,
-    private val walker: TreeWalker,
+    private val context: Context,
     private val pack: PolicyPack,
     private val notifications: NotificationActions,
+    private val intents: IntentExecutor,
+    private val devices: DeviceControls,
+    private val partners: PartnerRouter,
+    private val media: SessionMedia,
+    private val service: AccessibilityService? = null,
+    private val walker: TreeWalker? = null,
     private val vision: ScreenAsk? = null,
 ) : Executor {
 
@@ -71,19 +84,49 @@ class NodeExecutor(
         is Action.Wait -> { delay(action.seconds * 1000L); ExecResult.OK }
         // Terminal and paging verbs never reach the executor; the loop handles them.
         is Action.Done, is Action.Ask, Action.More -> ExecResult.error("not an executable verb")
-        // Non-tree verbs parse and policy-gate; their executors are not built yet.
-        is Action.Call, is Action.Text, is Action.Alarm, is Action.Timer, is Action.Event,
-        is Action.ContactLookup, is Action.ContactAdd, is Action.Navigate,
-        is Action.Torch, is Action.Dnd, is Action.Brightness, is Action.Volume,
-        is Action.Media, is Action.WhatsApp, is Action.Spotify, is Action.Gmail,
-        Action.Qs -> ExecResult.error("${action.verb.word} is not built yet")
+        is Action.Call -> intents.start(PhoneIntents.dial(action.number))
+        is Action.Text -> intents.start(PhoneIntents.smsDraft(action.number, action.body))
+        is Action.Alarm -> intents.start(PhoneIntents.setAlarm(action.hour, action.minute, action.label))
+        is Action.Timer -> intents.start(PhoneIntents.setTimer(action.seconds, action.label))
+        is Action.Event -> startEvent(action)
+        is Action.ContactLookup -> intents.start(PhoneIntents.lookupContact(action.query))
+        is Action.ContactAdd -> intents.start(PhoneIntents.insertContact(action.name, action.number))
+        is Action.Navigate -> navigate(action.query)
+        is Action.Torch -> devices.torch(action.on)
+        is Action.Dnd -> devices.dnd(action.on)
+        is Action.Brightness -> devices.brightness(action.percent)
+        is Action.Volume -> devices.volume(action.change)
+        is Action.Media -> media.execute(action.command)
+        is Action.WhatsApp, is Action.Spotify, is Action.Gmail -> partners.execute(action)
+        Action.Qs -> qs()
     }
 
     private inline fun onNode(target: UiNode?, block: (AccessibilityNodeInfo) -> ExecResult): ExecResult {
+        val tree = walker ?: return ExecResult.error("screen driver is off")
         if (target == null) return ExecResult.error("no target")
-        val live = walker.find(target.identity) ?: return ExecResult.error("control is no longer on screen")
+        val live = tree.find(target.identity) ?: return ExecResult.error("control is no longer on screen")
         if (!live.isVisibleToUser) return ExecResult.error("control is not visible")
         return block(live)
+    }
+
+    private fun qs(): ExecResult {
+        if (service == null) return ExecResult.error("screen driver is off; cannot open Quick Settings")
+        return global(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS)
+    }
+
+    private fun startEvent(action: Action.Event): ExecResult {
+        val begin = EventTimes.millis(action.beginIso)
+            ?: return ExecResult.error("could not read the event time")
+        val end = action.endIso?.let { iso ->
+            EventTimes.millis(iso) ?: return ExecResult.error("could not read the event time")
+        }
+        return intents.start(PhoneIntents.insertEvent(action.title, begin, end))
+    }
+
+    private fun navigate(query: String): ExecResult {
+        val maps = intents.start(PhoneIntents.navigate(query, lockMapsPackage = true))
+        if (maps.ok) return maps
+        return intents.start(PhoneIntents.navigate(query, lockMapsPackage = false))
     }
 
     private fun setText(n: AccessibilityNodeInfo, text: String): ExecResult {
@@ -92,7 +135,7 @@ class NodeExecutor(
         val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text) }
         if (n.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return ExecResult.OK
         // Clipboard paste fallback: put the text on the clipboard, then ACTION_PASTE.
-        val cm = service.getSystemService(android.content.ClipboardManager::class.java)
+        val cm = context.getSystemService(android.content.ClipboardManager::class.java)
         cm?.setPrimaryClip(android.content.ClipData.newPlainText("tst-assist", text))
         return if (n.performAction(AccessibilityNodeInfo.ACTION_PASTE)) {
             // TM-012: do not leave the model's text sitting on the clipboard.
@@ -121,17 +164,26 @@ class NodeExecutor(
         Direction.RIGHT -> Direction.LEFT
     }
 
-    private fun global(action: Int): ExecResult =
-        if (service.performGlobalAction(action)) ExecResult.OK else ExecResult.error("system refused")
+    private fun global(action: Int): ExecResult {
+        val svc = service ?: return ExecResult.error("screen driver is off")
+        return if (svc.performGlobalAction(action)) ExecResult.OK else ExecResult.error("system refused")
+    }
 
     /** Launch by label through the allowlist only. The label is a lookup key, never a command. */
     private fun open(label: String): ExecResult {
         val app = pack.resolveOpen(label) ?: return ExecResult.error("'$label' is not an allowlisted app")
-        val intent = service.packageManager.getLaunchIntentForPackage(app.pkg)
+        if (app.pkg == SettingsIntents.PKG_SETTINGS) {
+            val panel = SettingsIntents.panelFor(label)
+            if (panel != null) {
+                val r = intents.start(panel)
+                if (r.ok) return r
+            }
+        }
+        val intent = context.packageManager.getLaunchIntentForPackage(app.pkg)
             ?: return ExecResult.error("${app.label} is not installed")
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return try {
-            service.startActivity(intent)
+            context.startActivity(intent)
             ExecResult.OK
         } catch (e: Exception) {
             ExecResult.error("could not open ${app.label}")
@@ -146,7 +198,7 @@ class NodeExecutor(
     }
 
     private fun observationDisplay(obs: Observation): Rect {
-        val wm = service.getSystemService(android.view.WindowManager::class.java)
+        val wm = context.getSystemService(android.view.WindowManager::class.java)
         val b = wm.currentWindowMetrics.bounds
         return Rect(b.left, b.top, b.right, b.bottom)
     }
@@ -191,8 +243,9 @@ class NodeExecutor(
         } else {
             builder.addStroke(GestureDescription.StrokeDescription(path, start, duration, willContinue))
         }
+        val svc = service ?: return ExecResult.error("screen driver is off")
         return suspendCancellableCoroutine { cont ->
-            val ok = service.dispatchGesture(
+            val ok = svc.dispatchGesture(
                 builder.build(),
                 object : AccessibilityService.GestureResultCallback() {
                     override fun onCompleted(g: GestureDescription?) { if (cont.isActive) cont.resume(ExecResult.OK) }

@@ -2,11 +2,13 @@ package com.thatsimpletech.assist.task
 
 import com.thatsimpletech.assist.Graph
 import com.thatsimpletech.assist.a11y.AssistAccessibilityService
+import com.thatsimpletech.assist.a11y.EmptyObserver
 import com.thatsimpletech.assist.a11y.NodeExecutor
 import com.thatsimpletech.assist.a11y.TreeObserver
 import com.thatsimpletech.assist.approval.OverlayMeter
 import com.thatsimpletech.assist.core.grammar.ActionParser
 import com.thatsimpletech.assist.core.loop.GoalApps
+import com.thatsimpletech.assist.core.loop.Observer
 import com.thatsimpletech.assist.core.loop.Outcome
 import com.thatsimpletech.assist.core.loop.SpendGuard
 import com.thatsimpletech.assist.core.loop.SpendSnapshot
@@ -15,8 +17,14 @@ import com.thatsimpletech.assist.core.meter.CostTracker
 import com.thatsimpletech.assist.core.meter.MeterText
 import com.thatsimpletech.assist.core.observe.ObservationBuilder
 import com.thatsimpletech.assist.core.policy.PolicyEnforcer
+import com.thatsimpletech.assist.device.DeviceControls
+import com.thatsimpletech.assist.intent.IntentExecutor
+import com.thatsimpletech.assist.intent.PermissionGate
 import com.thatsimpletech.assist.kill.GlobalKillSwitch
+import com.thatsimpletech.assist.media.SessionMedia
 import com.thatsimpletech.assist.notif.AssistNotificationListener
+import com.thatsimpletech.assist.partner.AppFunctionExecutor
+import com.thatsimpletech.assist.partner.PartnerRouter
 import java.util.UUID
 
 /**
@@ -26,9 +34,9 @@ import java.util.UUID
  */
 object TaskController {
     suspend fun run(goal: String, onMeter: (String) -> Unit): String {
-        val service = AssistAccessibilityService.instance
-            ?: return "stopped: the screen driver (accessibility service) is off"
         if (GlobalKillSwitch.killed) return "stopped: kill switch is set; re-arm it in the app"
+        val service = AssistAccessibilityService.instance
+        val appContext = Graph.app
 
         val meter = CostTracker()
         val audit = Graph.audit
@@ -37,26 +45,43 @@ object TaskController {
         val choice = Planners.forConfig(meter)
         val planner = choice.planner ?: return "stopped: ${choice.reason}"
         val capUsd = Graph.config.spendCapUsd
-        val overlay = OverlayMeter(service)
+        val overlay = service?.let { OverlayMeter(it) }
 
         fun chip(paused: Boolean = false) = MeterText.chip(meter.snapshot(), capUsd, paused)
 
         try {
-            overlay.show(chip())
+            overlay?.show(chip())
             meter.addListener {
                 val text = chip()
-                overlay.update(text)
+                overlay?.update(text)
                 onMeter(text)
             }
 
             val pack = Graph.pack
             val enforcer = PolicyEnforcer(pack)
-            val walker = service.walker
-            val observer = TreeObserver(service, walker) { service.lastActivity }
-            val executor = NodeExecutor(
-                service = service, walker = walker, pack = pack,
-                notifications = AssistNotificationListener.instance ?: AssistNotificationListener.unavailable,
-            )
+            val intents = IntentExecutor(appContext)
+            val devices = DeviceControls(appContext, PermissionGate(appContext))
+            val partners = PartnerRouter(AppFunctionExecutor(appContext), intents)
+            val media = SessionMedia(appContext)
+            val observer: Observer
+            val executor: NodeExecutor
+            if (service != null) {
+                val walker = service.walker
+                observer = TreeObserver(service, walker) { service.lastActivity }
+                executor = NodeExecutor(
+                    context = service, pack = pack,
+                    notifications = AssistNotificationListener.instance ?: AssistNotificationListener.unavailable,
+                    intents = intents, devices = devices, partners = partners, media = media,
+                    service = service, walker = walker,
+                )
+            } else {
+                observer = EmptyObserver(appContext)
+                executor = NodeExecutor(
+                    context = appContext, pack = pack,
+                    notifications = AssistNotificationListener.instance ?: AssistNotificationListener.unavailable,
+                    intents = intents, devices = devices, partners = partners, media = media,
+                )
+            }
             val sessionId = UUID.randomUUID().toString()
             audit.startSession(sessionId, Graph.deviceId, choice.mode, goal)
             val codec = Graph.provider.codec()
@@ -80,7 +105,7 @@ object TaskController {
             val outcome = runner.run(goal, goalApps)
             val paused = outcome is Outcome.Paused
             val last = chip(paused)
-            overlay.update(last)
+            overlay?.update(last)
             onMeter(last)
             return when (outcome) {
                 is Outcome.Done -> "done: ${outcome.summary}"
@@ -89,7 +114,7 @@ object TaskController {
                 is Outcome.Paused -> "paused: ${outcome.reason}"
             } + "  ·  " + last
         } finally {
-            overlay.hide()
+            overlay?.hide()
         }
     }
 

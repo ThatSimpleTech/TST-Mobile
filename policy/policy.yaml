@@ -55,7 +55,7 @@ apps:
     sensitive_ids: [share]
   - package: com.android.settings
     label: Settings
-    aliases: [ajustes, configuración, configuracion]
+    aliases: [ajustes, configuración, configuracion, wifi, wi-fi, internet, bluetooth, bt]
     sensitive_ids: []
   - package: com.google.android.contacts
     label: Contacts

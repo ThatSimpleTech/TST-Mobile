@@ -2,9 +2,11 @@ package com.thatsimpletech.assist.ui
 
 import android.Manifest
 import android.app.Activity
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
@@ -64,6 +66,10 @@ class MainActivity : Activity() {
         col.addView(button("Accessibility settings (screen driver)") { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
         col.addView(button("Default assistant") { startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS)) })
         col.addView(button("Notification access") { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) })
+        col.addView(button("Write system settings") {
+            startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply { data = Uri.parse("package:$packageName") })
+        })
+        col.addView(button("Do Not Disturb access") { startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)) })
 
         col.addView(TextView(this).apply {
             text = "First smoke: Accessibility on → pick a provider and model → Save provider → open WhatsApp → goal names WhatsApp → Run task. Approve type, then Send. Stop is on the task notification and the Quick Settings tile. Default assistant is optional (voice is not built)."
@@ -147,9 +153,13 @@ class MainActivity : Activity() {
 
         setContentView(ScrollView(this).apply { addView(col) })
 
-        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-        }
+        val needed = arrayOf(
+            Manifest.permission.POST_NOTIFICATIONS,
+            Manifest.permission.CAMERA,
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.WRITE_CONTACTS,
+        ).filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (needed.isNotEmpty()) requestPermissions(needed.toTypedArray(), 1)
     }
 
     override fun onResume() {
@@ -236,6 +246,9 @@ class MainActivity : Activity() {
             append(if (a11y) "✓ screen driver on\n" else "✗ screen driver off (no-accessibility mode: answers, notifications, intents)\n")
             append(if (assistant) "✓ default assistant\n" else "✗ not the default assistant\n")
             append(if (notif) "✓ notification access\n" else "✗ notification access off\n")
+            append(if (Settings.System.canWrite(this@MainActivity)) "✓ write settings\n" else "✗ write settings off (brightness)\n")
+            val dnd = getSystemService(NotificationManager::class.java)?.isNotificationPolicyAccessGranted == true
+            append(if (dnd) "✓ Do Not Disturb access\n" else "✗ Do Not Disturb access off\n")
             append("${settings.label} · ${brain.slug} · $host\n")
             append(
                 when {

@@ -17,6 +17,12 @@ object DeviceControl {
     const val PERCENT_MIN = 0
     const val PERCENT_MAX = 100
 
+    /**
+     * `AudioManager.FLAG_SHOW_UI`. Volume must always pass this bit so the
+     * system slider is visible. Never call adjust/setStreamVolume with flags 0.
+     */
+    const val FLAG_SHOW_UI = 0x00000001
+
     fun torch(on: Boolean): Action.Torch = Action.Torch(on)
 
     fun dnd(on: Boolean): Action.Dnd = Action.Dnd(on)

@@ -175,3 +175,13 @@ A new `CostTracker` per `TaskController.run` used to make `dayCost == sessionCos
 
 Family mode **on**: a blocked host is refused even if Custom names it. Settings Save and `Planners.forConfig` say `"that host is blocked in family mode"`. `Graph.reloadProvider` will not put that host on `Endpoints`. Family mode **off** (BYOM): any `base_url` may be typed; `Endpoints` still allowlists only that host (TM-015). Device and loopback stay allowed. The default picker is OpenRouter / Local / LAN / Custom — no blocked-host chip, and Device stays an honest refusal (TM-013).
 
+## TM-022 (2026-09-08) QS-visible Wi-Fi/Bluetooth only; Settings panel is the fallback
+
+There is no silent Wi-Fi or Bluetooth toggle in M2. No `WifiManager.setWifiEnabled`, no `BluetoothAdapter.enable/disable`, no `CHANGE_WIFI_STATE` / `BLUETOOTH_*` permissions, no `wifi` / `bluetooth` verb.
+
+The path is `qs` (global Quick Settings, silent like `recents`) then `tap` a visible tile. That tap is Tier 2 via the `on_qs` fact (`qs-tile`), even though SystemUI is not allowlisted. Shade detection prefers false negatives: a miss is `app-not-allowlisted`. If the tile is not in the tree, the fallback is `open "Settings"` (or `open "Wi-Fi"` / `open "Bluetooth"`, which fire `ACTION_WIFI_SETTINGS` / `ACTION_BLUETOOTH_SETTINGS`) and tap the row — already `settings-change`. Stage 2/3 shell toggles stay out.
+
+## TM-024 (2026-09-08) Intent and direct-API goals may run with accessibility off
+
+`TaskController` no longer bails when the accessibility service is off. An `EmptyObserver` supplies a blank tree (`app=""`, no nodes, fingerprint `"empty"`). Intent, device, partner, and media verbs parse without hints and execute. Hint verbs (`tap`/`type`/…) parse-fail against the empty hint set and stop after one repair. `qs` and tree gestures still need the screen driver and return `"screen driver is off; cannot open Quick Settings"` (or the same for taps). Overlay meter and gold highlight stay a11y-only; the notification chip still updates. Kill switch, approvals, Endpoints, and the planner are unchanged.
+

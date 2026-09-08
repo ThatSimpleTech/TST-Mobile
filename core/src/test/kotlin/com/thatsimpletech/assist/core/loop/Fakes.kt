@@ -154,6 +154,15 @@ object Screens {
         ),
     )
 
+    /** No-a11y empty tree (TM-024). */
+    fun empty() = Screen(app = "", activity = "", display = Rect(0, 0, 1, 1), nodes = emptyList())
+
+    /** SystemUI shade with a Wi-Fi/Internet tile and [Screen.onQs] set. */
+    fun qsShade() = Screen(
+        app = "com.android.systemui", activity = "QuickSettings", display = display, onQs = true,
+        nodes = listOf(node("wifi", Role.BTN, "Internet", top = 200)),
+    )
+
     /** [1] list, [2] btn Ok, in Gmail: outside a WhatsApp task's goal apps. */
     fun gmail() = Screen(
         app = "com.google.android.gm", activity = "Inbox", display = display,

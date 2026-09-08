@@ -1,5 +1,6 @@
 package com.thatsimpletech.assist.a11y
 
+import android.accessibilityservice.AccessibilityService
 import android.app.KeyguardManager
 import android.content.Context
 import android.view.WindowManager
@@ -30,14 +31,21 @@ class TreeObserver(
         // that the password-field rule never sees, because suggestion chips are not isPassword.
         val visibleKinds = setOf(WindowKind.APP, WindowKind.SYSTEM, WindowKind.OTHER)
         val visibleIds = walk.windows.filter { it.kind in visibleKinds }.map { it.id }.toSet()
+        val activity = activityName()
+        val onQs = if (context is AccessibilityService) {
+            QsObserver.detect(context, app, activity)
+        } else {
+            false
+        }
         return Screen(
             app = app,
-            activity = activityName(),
+            activity = activity,
             display = display(),
             nodes = walk.nodes.filter { it.window in visibleIds },
             windows = walk.windows.filter { it.kind in visibleKinds },
             keyguard = keyguard(),
             secure = secure,
+            onQs = onQs,
         )
     }
 

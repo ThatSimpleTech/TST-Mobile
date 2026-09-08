@@ -309,6 +309,45 @@ class TaskRunnerTest {
     }
 
     @Test
+    fun callSucceedsOnEmptyObservation() {
+        val rig = Rig(
+            replies = listOf("call \"555\"", "done \"dialed\""),
+            screens = listOf(Screens.empty()),
+            approvals = ScriptedApprovals(cards = listOf(true)),
+        )
+        assertEquals(Outcome.Done("dialed"), run(rig, goalApps = emptySet()))
+        assertEquals(listOf(Action.Call("555")), rig.executor.actions)
+        assertTrue(rig.listener.steps[0].observation.app.isEmpty())
+        assertTrue(rig.listener.steps[0].observation.hints.isEmpty())
+    }
+
+    @Test
+    fun tapOnEmptyObservationParseFails() {
+        val rig = Rig(
+            replies = listOf("tap 1", "tap 1"),
+            screens = listOf(Screens.empty()),
+        )
+        val reason = stopped(run(rig, goalApps = emptySet()))
+        assertTrue(reason.startsWith("could not parse"), reason)
+        assertTrue(rig.executor.calls.isEmpty())
+        assertIs<ParseResult.Error>(rig.listener.steps[0].parsed)
+    }
+
+    @Test
+    fun qsThenTapExecutes() {
+        val rig = Rig(
+            replies = listOf("qs", "tap 1", "done \"wifi\""),
+            screens = listOf(Screens.qsShade()),
+            approvals = ScriptedApprovals(cards = listOf(true)),
+        )
+        assertEquals(Outcome.Done("wifi"), run(rig))
+        assertEquals(listOf(Action.Qs, Action.Tap(1)), rig.executor.actions)
+        assertEquals("qs-tile", rig.listener.steps[1].decision?.rule)
+        assertTrue(rig.listener.steps[1].observation.onQs)
+        assertEquals("com.android.systemui", rig.listener.steps[1].observation.app)
+    }
+
+    @Test
     fun validatorCallIsClassifierOnTheMeter() {
         val meter = CostTracker()
         val prices = AssistConfig.loadDefault().active.validator

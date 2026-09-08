@@ -67,6 +67,8 @@ data class Screen(
     val keyguard: Boolean = false,
     /** FLAG_SECURE or an app that hides its views: report, hand off, never bypass (P7, P8). */
     val secure: Boolean = false,
+    /** True when the shade (Quick Settings) is the window the tree is reading. */
+    val onQs: Boolean = false,
 )
 
 /**

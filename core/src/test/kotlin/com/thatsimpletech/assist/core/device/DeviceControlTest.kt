@@ -40,4 +40,10 @@ class DeviceControlTest {
         assertEquals(true, torchOn.on)
         assertEquals(false, dndOff.on)
     }
+
+    @Test
+    fun volumeFlagShowUiIsTheFrameworkBit() {
+        assertEquals(1, DeviceControl.FLAG_SHOW_UI)
+        assertEquals(0x00000001, DeviceControl.FLAG_SHOW_UI)
+    }
 }

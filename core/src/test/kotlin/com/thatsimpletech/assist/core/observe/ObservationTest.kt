@@ -159,6 +159,18 @@ class ObservationTest {
     }
 
     @Test
+    fun onQsFlowsFromScreen() {
+        val screen = Screen(
+            app = "com.android.systemui", activity = "QuickSettings", display = display,
+            nodes = listOf(node("wifi", Role.BTN, "Internet", top = 100)),
+            onQs = true,
+        )
+        val obs = ObservationBuilder(coverage = CoverageDetector(minNodesPerMegapixel = 0.0)).observe(screen)
+        assertTrue(obs.onQs)
+        assertEquals("com.android.systemui", obs.app)
+    }
+
+    @Test
     fun letterCodecQuotesLabelsTheSame() {
         val screen = Screen(
             "com.whatsapp", "Conversation", display,

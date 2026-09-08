@@ -93,6 +93,7 @@ class ObservationBuilder(
             pages = pages,
             fingerprint = fingerprint,
             scrollHint = shown.firstOrNull { it.scrollable }?.let { hints[it.identity] },
+            onQs = screen.onQs,
         )
     }
 
