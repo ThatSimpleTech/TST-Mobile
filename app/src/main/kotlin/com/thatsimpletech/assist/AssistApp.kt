@@ -16,6 +16,7 @@ import com.thatsimpletech.assist.core.grammar.HintCodec
 import com.thatsimpletech.assist.core.net.Endpoints
 import com.thatsimpletech.assist.core.net.ProviderPolicy
 import com.thatsimpletech.assist.core.policy.PolicyPack
+import com.thatsimpletech.assist.core.profile.ModelProfiles
 import com.thatsimpletech.assist.core.redact.Redactor
 import com.thatsimpletech.assist.core.secrets.SecretStore
 import com.thatsimpletech.assist.core.steering.DefaultInstructions
@@ -73,6 +74,10 @@ object Graph {
         store.migrate()
         store
     }
+
+    /** Per-endpoint suite stats. Not a rules file; the agent has no verb that writes it. */
+    val profilesFile: File
+        get() = File(app.filesDir, ModelProfiles.RELATIVE_PATH).also { it.parentFile?.mkdirs() }
 
     /**
      * Agent-unwritable rules dir: ASSISTANT.md, CHARTER.md, profiles/, policy.yaml (plan §6).

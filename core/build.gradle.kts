@@ -37,6 +37,9 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // Forward so `./gradlew :core:test -Dassist.liveSuite=1` reaches the test JVM (Q9).
+    val live = System.getProperty("assist.liveSuite") ?: ""
+    systemProperty("assist.liveSuite", live)
     testLogging {
         events("failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

@@ -26,6 +26,8 @@ import com.thatsimpletech.assist.core.grammar.HintCodec
 import com.thatsimpletech.assist.core.net.ProviderPolicy
 import com.thatsimpletech.assist.core.policy.Conformance
 import com.thatsimpletech.assist.core.policy.PolicyEnforcer
+import com.thatsimpletech.assist.core.profile.ModelProfiles
+import com.thatsimpletech.assist.core.profile.ModelSuite
 import com.thatsimpletech.assist.core.secrets.SecretStore
 import com.thatsimpletech.assist.core.secrets.SecretStoreLockedException
 import com.thatsimpletech.assist.kill.GlobalKillSwitch
@@ -35,8 +37,9 @@ import com.thatsimpletech.assist.task.TaskForegroundService
 /**
  * The whole settings surface for now: status of the three grants, the provider (OpenRouter,
  * local/LAN, or a custom OpenAI-compatible server), spend cap, hint codec, family mode,
- * a goal box, the kill switch, and the policy self-check. Framework views only; a nicer
- * surface is later work.
+ * a goal box, the kill switch, the policy self-check, and the offline fixture suite.
+ * Live suite is a gradle property, not a button. Framework views only; a nicer surface
+ * is later work.
  */
 class MainActivity : Activity() {
     private lateinit var status: TextView
@@ -149,6 +152,11 @@ class MainActivity : Activity() {
             val failed = results.filter { !it.passed }
             status.append("\nPolicy pack v${Graph.pack.version}: ${results.size - failed.size}/${results.size} cases pass" +
                 if (failed.isEmpty()) "" else "\n" + failed.joinToString("\n") { "  ${it.case.name}: got ${it.tier}/${it.rule}" })
+        })
+        col.addView(button("Run offline suite") {
+            val report = ModelSuite.runOffline()
+            ModelProfiles.upsert(Graph.profilesFile, report.profile)
+            status.append("\n${report.summary}")
         })
 
         setContentView(ScrollView(this).apply { addView(col) })
