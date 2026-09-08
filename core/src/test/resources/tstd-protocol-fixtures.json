@@ -1,0 +1,1272 @@
+{
+  "hello": {
+    "type": "hello",
+    "token": "test-token-abc",
+    "version": 1
+  },
+  "open_workspace": {
+    "type": "open_workspace",
+    "path": "/home/user/project"
+  },
+  "user_message": {
+    "type": "user_message",
+    "session_id": "sess-1",
+    "content": "hello world",
+    "attachments": []
+  },
+  "fork_from": {
+    "type": "fork_from",
+    "session_id": "sess-1",
+    "user_index": 0,
+    "content": "hello again"
+  },
+  "set_branch": {
+    "type": "set_branch",
+    "session_id": "sess-1",
+    "user_index": 0,
+    "sibling_index": 1
+  },
+  "user_message_attachments": {
+    "type": "user_message",
+    "session_id": "sess-1",
+    "content": "what does this do?",
+    "attachments": [
+      {
+        "name": "notes.md",
+        "content_b64": "IyBUaXRsZQo="
+      },
+      {
+        "name": "empty.txt",
+        "content_b64": ""
+      }
+    ]
+  },
+  "approve": {
+    "type": "approve",
+    "session_id": "sess-1",
+    "tool_call_id": "tc-1"
+  },
+  "deny": {
+    "type": "deny",
+    "session_id": "sess-1",
+    "tool_call_id": "tc-1",
+    "reason": "not safe"
+  },
+  "deny_no_reason": {
+    "type": "deny",
+    "session_id": "sess-1",
+    "tool_call_id": "tc-1",
+    "reason": null
+  },
+  "always_allow": {
+    "type": "always_allow",
+    "session_id": "sess-1",
+    "tool_call_id": "tc-1"
+  },
+  "list_policy_rules": {
+    "type": "list_policy_rules",
+    "session_id": "sess-1"
+  },
+  "revoke_policy_rule": {
+    "type": "revoke_policy_rule",
+    "session_id": "sess-1",
+    "tool": "shell",
+    "args": "rm *"
+  },
+  "set_skip_all_approvals": {
+    "type": "set_skip_all_approvals",
+    "enabled": true
+  },
+  "set_load_global_memory": {
+    "type": "set_load_global_memory",
+    "enabled": true
+  },
+  "set_coworker": {
+    "type": "set_coworker",
+    "enabled": true
+  },
+  "set_cu_indicators": {
+    "type": "set_cu_indicators",
+    "glow": true,
+    "agent_cursor": true,
+    "show_on_real_display": false
+  },
+  "set_workspace_pin": {
+    "type": "set_workspace_pin",
+    "path": "/home/user/project",
+    "pinned": true
+  },
+  "resume": {
+    "type": "resume",
+    "session_id": "sess-1"
+  },
+  "cancel": {
+    "type": "cancel",
+    "session_id": "sess-1"
+  },
+  "run_verify": {
+    "type": "run_verify",
+    "session_id": "sess-1"
+  },
+  "deny_verify": {
+    "type": "deny_verify",
+    "session_id": "sess-1"
+  },
+  "attach": {
+    "type": "attach",
+    "session_id": "sess-1",
+    "from_seq": 5
+  },
+  "detach": {
+    "type": "detach",
+    "session_id": "sess-1"
+  },
+  "set_tier": {
+    "type": "set_tier",
+    "session_id": "sess-1",
+    "tier": "brain"
+  },
+  "set_plan": {
+    "type": "set_plan",
+    "session_id": "sess-1",
+    "on": true
+  },
+  "set_session_preset": {
+    "type": "set_session_preset",
+    "session_id": "sess-1",
+    "name": "budget"
+  },
+  "get_instruction_stack": {
+    "type": "get_instruction_stack",
+    "session_id": "sess-1"
+  },
+  "list_instructions": {
+    "type": "list_instructions",
+    "workspace_path": "/home/user/project"
+  },
+  "list_commands": {
+    "type": "list_commands",
+    "workspace_path": "/home/user/project"
+  },
+  "list_memory": {
+    "type": "list_memory",
+    "workspace_path": "/home/user/project"
+  },
+  "save_memory": {
+    "type": "save_memory",
+    "workspace_path": "/home/user/project",
+    "path": "MEMORY.md",
+    "content": "durable: ruff\n"
+  },
+  "create_rule": {
+    "type": "create_rule",
+    "workspace_path": "/home/user/project",
+    "name": "api"
+  },
+  "get_charter": {
+    "type": "get_charter",
+    "workspace_path": "/home/user/project"
+  },
+  "save_charter": {
+    "type": "save_charter",
+    "workspace_path": "/home/user/project",
+    "charter": {
+      "objective": "Ship the CSV importer end to end.",
+      "definition_of_done": [
+        "cargo test passes"
+      ],
+      "source_of_truth": [
+        "docs/spec.md"
+      ],
+      "boundary": {
+        "writable_paths": [
+          "src/**",
+          "tests/**"
+        ],
+        "allowed_commands": [
+          "cargo"
+        ],
+        "network": "deny"
+      },
+      "caps": {
+        "spend_usd": 25.0,
+        "wall_clock_hours": 8.0,
+        "max_iterations": 200
+      },
+      "stop_conditions": [
+        "any Class C decision"
+      ]
+    },
+    "notes": "Human context."
+  },
+  "start_autonomy": {
+    "type": "start_autonomy",
+    "workspace_path": "/home/user/project",
+    "charter": {
+      "objective": "Ship the CSV importer end to end.",
+      "definition_of_done": [
+        "cargo test passes"
+      ],
+      "source_of_truth": [
+        "docs/spec.md"
+      ],
+      "boundary": {
+        "writable_paths": [
+          "src/**",
+          "tests/**"
+        ],
+        "allowed_commands": [
+          "cargo"
+        ],
+        "network": "deny"
+      },
+      "caps": {
+        "spend_usd": 25.0,
+        "wall_clock_hours": 8.0,
+        "max_iterations": 200
+      },
+      "stop_conditions": [
+        "any Class C decision"
+      ]
+    },
+    "notes": "Human context."
+  },
+  "list_pins": {
+    "type": "list_pins",
+    "workspace_path": "/home/user/project"
+  },
+  "add_pin": {
+    "type": "add_pin",
+    "workspace_path": "/home/user/project",
+    "path": "src/app.ts"
+  },
+  "remove_pin": {
+    "type": "remove_pin",
+    "workspace_path": "/home/user/project",
+    "path": "src/app.ts"
+  },
+  "memory_accept": {
+    "type": "memory_accept",
+    "session_id": "sess-1",
+    "proposal_id": "mp-1"
+  },
+  "memory_edit": {
+    "type": "memory_edit",
+    "session_id": "sess-1",
+    "proposal_id": "mp-1",
+    "files": [
+      {
+        "path": ".tst/memory/MEMORY.md",
+        "content": "durable: ruff\n"
+      }
+    ]
+  },
+  "memory_reject": {
+    "type": "memory_reject",
+    "session_id": "sess-1",
+    "proposal_id": "mp-1"
+  },
+  "end_session": {
+    "type": "end_session",
+    "session_id": "sess-1"
+  },
+  "shutdown": {
+    "type": "shutdown"
+  },
+  "list_sessions": {
+    "type": "list_sessions"
+  },
+  "archive_session": {
+    "type": "archive_session",
+    "session_id": "sess-1",
+    "archived": true
+  },
+  "unarchive_session": {
+    "type": "archive_session",
+    "session_id": "sess-1",
+    "archived": false
+  },
+  "set_session_star": {
+    "type": "set_session_star",
+    "session_id": "sess-1",
+    "starred": true
+  },
+  "unstar_session": {
+    "type": "set_session_star",
+    "session_id": "sess-1",
+    "starred": false
+  },
+  "delete_session": {
+    "type": "delete_session",
+    "session_id": "sess-1"
+  },
+  "move_session": {
+    "type": "move_session",
+    "session_id": "sess-1",
+    "workspace_path": "/home/user/other"
+  },
+  "rename_session": {
+    "type": "rename_session",
+    "session_id": "sess-1",
+    "title": "My name"
+  },
+  "rename_session_restore": {
+    "type": "rename_session",
+    "session_id": "sess-1",
+    "title": ""
+  },
+  "get_setup_state": {
+    "type": "get_setup_state"
+  },
+  "set_api_key": {
+    "type": "set_api_key",
+    "api_key": "sk-or-test-key",
+    "credential": null,
+    "name": null
+  },
+  "delete_api_key": {
+    "type": "delete_api_key",
+    "provider": "openrouter"
+  },
+  "validate_api_key": {
+    "type": "validate_api_key",
+    "api_key": null,
+    "credential": null
+  },
+  "set_preset": {
+    "type": "set_preset",
+    "name": "tst-default"
+  },
+  "set_credential": {
+    "type": "set_credential",
+    "name": "Local",
+    "credential": null
+  },
+  "delete_credential": {
+    "type": "delete_credential",
+    "credential": "local"
+  },
+  "set_tier_credential": {
+    "type": "set_tier_credential",
+    "preset": "local",
+    "tier": "brain",
+    "credential": "local"
+  },
+  "set_mcp_server": {
+    "type": "set_mcp_server",
+    "id": "example",
+    "transport": "stdio",
+    "command": [
+      "python",
+      "-m",
+      "some_mcp"
+    ],
+    "url": "",
+    "enabled": true
+  },
+  "delete_mcp_server": {
+    "type": "delete_mcp_server",
+    "id": "example"
+  },
+  "run_diagnostics": {
+    "type": "run_diagnostics"
+  },
+  "get_usage": {
+    "type": "get_usage"
+  },
+  "export_usage": {
+    "type": "export_usage",
+    "format": "csv"
+  },
+  "list_artifacts": {
+    "type": "list_artifacts",
+    "session_id": "sess-1"
+  },
+  "open_artifact": {
+    "type": "open_artifact",
+    "session_id": "sess-1",
+    "artifact_id": "art-1"
+  },
+  "design_hit_test": {
+    "type": "design_hit_test",
+    "session_id": "sess-1",
+    "x": 12.0,
+    "y": 34.0
+  },
+  "check_cu_permissions": {
+    "type": "check_cu_permissions"
+  },
+  "set_cu_kill": {
+    "type": "set_cu_kill",
+    "killed": true
+  },
+  "set_remote_attach": {
+    "type": "set_remote_attach",
+    "enabled": true
+  },
+  "ready": {
+    "type": "ready",
+    "seq": 1,
+    "version": "0.1.0",
+    "protocol_version": 1
+  },
+  "session_state": {
+    "type": "session_state",
+    "seq": 2,
+    "session_id": "sess-1",
+    "state": "running",
+    "reason": null
+  },
+  "conversation_reset": {
+    "type": "conversation_reset",
+    "seq": 2,
+    "session_id": "sess-1",
+    "user_index": 0,
+    "sibling_index": 1,
+    "sibling_count": 2,
+    "content": "hello again"
+  },
+  "session_state_paused": {
+    "type": "session_state",
+    "seq": 2,
+    "session_id": "sess-1",
+    "state": "paused",
+    "reason": "spend cap exceeded: $0.0205 >= $0.01"
+  },
+  "user_turn": {
+    "type": "user_turn",
+    "seq": 3,
+    "session_id": "sess-1",
+    "turn_id": "turn-1",
+    "content": "Fix the tests"
+  },
+  "assistant_delta": {
+    "type": "assistant_delta",
+    "seq": 3,
+    "session_id": "sess-1",
+    "delta": "Hello "
+  },
+  "assistant_reasoning": {
+    "type": "assistant_reasoning",
+    "seq": 3,
+    "session_id": "sess-1",
+    "delta": "Let me think"
+  },
+  "tool_call": {
+    "type": "tool_call",
+    "seq": 4,
+    "session_id": "sess-1",
+    "tool_call_id": "tc-1",
+    "name": "fs_read",
+    "arguments": {
+      "path": "test.txt"
+    },
+    "decision_class": "B"
+  },
+  "tool_result": {
+    "type": "tool_result",
+    "seq": 5,
+    "session_id": "sess-1",
+    "tool_call_id": "tc-1",
+    "status": "success",
+    "output": "file content",
+    "truncated": false,
+    "error_code": null,
+    "diff": null
+  },
+  "tool_result_truncated": {
+    "type": "tool_result",
+    "seq": 6,
+    "session_id": "sess-1",
+    "tool_call_id": "tc-1",
+    "status": "error",
+    "output": "too long",
+    "truncated": true,
+    "error_code": null,
+    "diff": null
+  },
+  "tool_result_diff": {
+    "type": "tool_result",
+    "seq": 7,
+    "session_id": "sess-1",
+    "tool_call_id": "tc-1",
+    "status": "success",
+    "output": "wrote 12 bytes; overwrote test.txt",
+    "truncated": false,
+    "error_code": null,
+    "diff": "--- a/test.txt\n+++ b/test.txt\n@@ -1 +1 @@\n-old line\n+new line"
+  },
+  "tool_result_denied": {
+    "type": "tool_result",
+    "seq": 20,
+    "session_id": "sess-1",
+    "tool_call_id": "tc-1",
+    "status": "error",
+    "output": "Denied by user: not safe",
+    "truncated": false,
+    "error_code": "approval_denied",
+    "diff": null
+  },
+  "approval_request": {
+    "type": "approval_request",
+    "seq": 8,
+    "session_id": "sess-1",
+    "tool_call_id": "tc-1",
+    "tool_name": "fs_write",
+    "arguments": {
+      "path": "test.txt"
+    },
+    "decision_class": "C",
+    "summary": "Write to test.txt",
+    "reason": "decision class C requires approval",
+    "proposed_always_allow": null
+  },
+  "approval_request_always_allow": {
+    "type": "approval_request",
+    "seq": 9,
+    "session_id": "sess-1",
+    "tool_call_id": "tc-2",
+    "tool_name": "shell",
+    "arguments": {
+      "command": "npm test"
+    },
+    "decision_class": "B",
+    "summary": "Run `npm test`",
+    "reason": "decision class B requires approval",
+    "proposed_always_allow": {
+      "tool": "shell",
+      "args": "npm test",
+      "effect": "auto"
+    }
+  },
+  "decision_logged": {
+    "type": "decision_logged",
+    "seq": 9,
+    "session_id": "sess-1",
+    "decision_class": "A",
+    "what": "Formatted file",
+    "why": "Ruff format",
+    "commit": "abc123"
+  },
+  "checkpoint_notice": {
+    "type": "checkpoint_notice",
+    "seq": 10,
+    "session_id": "sess-1",
+    "code": "dirty_baseline",
+    "message": "This workspace has uncommitted changes."
+  },
+  "verify_result": {
+    "type": "verify_result",
+    "seq": 10,
+    "session_id": "sess-1",
+    "verdict": "pass",
+    "summary": "Diff matches the tests.",
+    "cost": 0.002,
+    "pending": false
+  },
+  "cost_update": {
+    "type": "cost_update",
+    "seq": 11,
+    "session_id": "sess-1",
+    "turn_cost": 0.05,
+    "session_cost": 0.5,
+    "total_cost": 1.2,
+    "classifier_cost": 0.01,
+    "cost_by_tier": {
+      "brain": 0.4,
+      "worker": 0.1
+    }
+  },
+  "boundary_update": {
+    "type": "boundary_update",
+    "seq": 12,
+    "session_id": "sess-1",
+    "writable_paths": [
+      "src/**",
+      "tests/**"
+    ],
+    "allowed_commands": [
+      "cargo",
+      "git"
+    ],
+    "network": "deny",
+    "spend_usd": 25.0,
+    "wall_clock_hours": 8.0,
+    "max_iterations": 200,
+    "source": "defaults",
+    "attachments": {
+      "max_file_bytes": 256000,
+      "max_total_bytes": 512000,
+      "max_count": 10
+    }
+  },
+  "turn_complete": {
+    "type": "turn_complete",
+    "seq": 12,
+    "session_id": "sess-1",
+    "tokens": 1500,
+    "cost": 0.03,
+    "tier": "worker",
+    "duration": 2.5,
+    "failed": false,
+    "error_code": null
+  },
+  "turn_complete_failed": {
+    "type": "turn_complete",
+    "seq": 13,
+    "session_id": "sess-1",
+    "tokens": 0,
+    "cost": 0.0,
+    "tier": "brain",
+    "duration": 0.4,
+    "failed": true,
+    "error_code": "auth_failed"
+  },
+  "tier_state": {
+    "type": "tier_state",
+    "seq": 18,
+    "session_id": "sess-1",
+    "tier": "brain",
+    "override": null,
+    "model_slugs": {
+      "brain": "test-brain-slug",
+      "worker": "test-worker-slug",
+      "validator": "test-validator-slug"
+    },
+    "preset": "test",
+    "hosts": {
+      "brain": "mock.local",
+      "worker": "mock.local",
+      "validator": "mock.local"
+    },
+    "plan": false,
+    "vision": false
+  },
+  "tier_state_override": {
+    "type": "tier_state",
+    "seq": 19,
+    "session_id": "sess-1",
+    "tier": "validator",
+    "override": "validator",
+    "model_slugs": {
+      "brain": "test-brain-slug",
+      "worker": "test-worker-slug",
+      "validator": "test-validator-slug"
+    },
+    "preset": "test",
+    "hosts": {
+      "brain": "mock.local",
+      "worker": "mock.local",
+      "validator": "mock.local"
+    },
+    "plan": false,
+    "vision": false
+  },
+  "tier_state_plan": {
+    "type": "tier_state",
+    "seq": 20,
+    "session_id": "sess-1",
+    "tier": "brain",
+    "override": null,
+    "model_slugs": {
+      "brain": "test-brain-slug",
+      "worker": "test-worker-slug",
+      "validator": "test-validator-slug"
+    },
+    "preset": "test",
+    "hosts": {
+      "brain": "mock.local",
+      "worker": "mock.local",
+      "validator": "mock.local"
+    },
+    "plan": true,
+    "vision": false
+  },
+  "ping": {
+    "type": "ping"
+  },
+  "error": {
+    "type": "error",
+    "seq": 13,
+    "session_id": null,
+    "code": "test",
+    "message": "fail"
+  },
+  "error_with_session": {
+    "type": "error",
+    "seq": 14,
+    "session_id": "sess-1",
+    "code": "test",
+    "message": "fail"
+  },
+  "shell_output": {
+    "type": "shell_output",
+    "seq": 15,
+    "session_id": "sess-1",
+    "tool_call_id": "tc-1",
+    "stream": "stdout",
+    "chunk": "hello\n"
+  },
+  "steering_reloaded": {
+    "type": "steering_reloaded",
+    "seq": 16,
+    "session_id": "sess-1",
+    "prefix_hash": "abc123",
+    "prefix_tokens": 100,
+    "steering_tokens": 60,
+    "source_count": 3
+  },
+  "rule_activated": {
+    "type": "rule_activated",
+    "seq": 16,
+    "session_id": "sess-1",
+    "rule_path": ".tst/rules/api-rules.md"
+  },
+  "instruction_stack": {
+    "type": "instruction_stack",
+    "seq": 17,
+    "session_id": "sess-1",
+    "sources": [
+      {
+        "path": "CLAUDE.md",
+        "precedence": "project",
+        "active": true,
+        "tokens": 500,
+        "token_method": "cl100k_base",
+        "warnings": [],
+        "subtree": null,
+        "is_fallback": false,
+        "shadowed_path": null,
+        "applies_to": null,
+        "imports": []
+      }
+    ],
+    "total_tokens": 500,
+    "token_method": "cl100k_base",
+    "last_cached_tokens": null,
+    "cache_observed": false,
+    "memory": [],
+    "memory_dropped": [],
+    "memory_placeholder": false,
+    "skills": [
+      {
+        "name": "review",
+        "description": "Review a PR",
+        "source": "workspace",
+        "loaded": false,
+        "tokens": 40
+      }
+    ]
+  },
+  "charter": {
+    "type": "charter",
+    "seq": 1,
+    "workspace_path": "/home/user/project",
+    "present": true,
+    "charter": {
+      "objective": "Ship the CSV importer end to end.",
+      "definition_of_done": [
+        "cargo test passes"
+      ],
+      "source_of_truth": [
+        "docs/spec.md"
+      ],
+      "boundary": {
+        "writable_paths": [
+          "src/**",
+          "tests/**"
+        ],
+        "allowed_commands": [
+          "cargo"
+        ],
+        "network": "deny"
+      },
+      "caps": {
+        "spend_usd": 25.0,
+        "wall_clock_hours": 8.0,
+        "max_iterations": 200
+      },
+      "stop_conditions": [
+        "any Class C decision"
+      ]
+    },
+    "notes": "Human context."
+  },
+  "autonomy_start": {
+    "type": "autonomy_start",
+    "seq": 1,
+    "workspace_path": "/home/user/project",
+    "ready": true,
+    "signed": true,
+    "error": null,
+    "session_id": "sess-autonomy"
+  },
+  "autonomy_summary": {
+    "type": "autonomy_summary",
+    "seq": 12,
+    "session_id": "sess-1",
+    "reason": "definition of done met",
+    "branch": "tst/auto/ship-the-csv-importer",
+    "ledger_path": ".tst/autonomy/DECISIONS.md",
+    "changed": [
+      "src/importer.py"
+    ],
+    "refusals": [],
+    "ledger_excerpt": "## 2026-08-26T12:00:00Z \u00b7 Class A \u00b7 commit abc123\n**Chose:** format\n**Why:** ruff"
+  },
+  "memory_files": {
+    "type": "memory_files",
+    "seq": 1,
+    "workspace_path": "/home/user/project",
+    "files": [
+      {
+        "path": "/home/user/project/.tst/memory/MEMORY.md",
+        "name": "MEMORY.md",
+        "content": "durable: ruff\n"
+      }
+    ]
+  },
+  "instruction_files": {
+    "type": "instruction_files",
+    "seq": 1,
+    "workspace_path": "/home/user/project",
+    "files": [
+      {
+        "path": "/home/user/project/AGENTS.md",
+        "name": "AGENTS.md",
+        "kind": "agents"
+      },
+      {
+        "path": "/home/user/project/.tst/rules/api.md",
+        "name": "api.md",
+        "kind": "rule"
+      }
+    ],
+    "created": null
+  },
+  "command_list": {
+    "type": "command_list",
+    "seq": 1,
+    "workspace_path": "/home/user/project",
+    "commands": [
+      {
+        "name": "review",
+        "description": "Review the current diff",
+        "source": "workspace",
+        "body": "Please review the staged changes.\n",
+        "too_large": false
+      }
+    ]
+  },
+  "context_pins": {
+    "type": "context_pins",
+    "seq": 1,
+    "workspace_path": "/home/user/project",
+    "pins": [
+      {
+        "path": "src/app.ts",
+        "name": "app.ts",
+        "kind": "file",
+        "lines": 12
+      }
+    ],
+    "instruction_tokens": 0,
+    "memory_tokens": 0,
+    "pin_tokens": 0,
+    "capacity_cap": 0,
+    "dropped": []
+  },
+  "context_compacted": {
+    "type": "context_compacted",
+    "seq": 18,
+    "session_id": "sess-1",
+    "dropped_messages": 12,
+    "kept_messages": 8,
+    "tokens_before": 12000,
+    "tokens_after": 4000
+  },
+  "tier_switched": {
+    "type": "tier_switched",
+    "seq": 19,
+    "session_id": "sess-1",
+    "tier": "worker",
+    "previous": "brain"
+  },
+  "session_list": {
+    "type": "session_list",
+    "seq": 1,
+    "sessions": [
+      {
+        "session_id": "sess-1",
+        "workspace_path": "/home/user/project",
+        "state": "interrupted",
+        "created_at": "2026-08-13T10:00:00Z",
+        "updated_at": "2026-08-13T10:00:00Z",
+        "event_count": 0,
+        "archived": false,
+        "starred": false,
+        "title": "hello world",
+        "preset": "tst-default",
+        "busy": false
+      },
+      {
+        "session_id": "sess-2",
+        "workspace_path": "/home/user/project",
+        "state": "complete",
+        "created_at": "2026-08-13T09:00:00Z",
+        "updated_at": "2026-08-13T09:30:00Z",
+        "event_count": 12,
+        "archived": true,
+        "starred": true,
+        "title": null,
+        "preset": "",
+        "busy": false
+      }
+    ]
+  },
+  "policy_rules": {
+    "type": "policy_rules",
+    "seq": 1,
+    "rules": [
+      {
+        "tool": "shell",
+        "args": "npm test",
+        "effect": "auto"
+      },
+      {
+        "tool": "fs_*",
+        "args": "src/**",
+        "effect": "ask"
+      }
+    ]
+  },
+  "setup_state": {
+    "type": "setup_state",
+    "seq": 1,
+    "has_api_key": false,
+    "key_required": true,
+    "presets": [
+      "budget",
+      "local",
+      "tst-default"
+    ],
+    "active_preset": "tst-default",
+    "tier_slugs": {},
+    "skip_all_approvals": false,
+    "load_global_memory": false,
+    "coworker_enabled": true,
+    "cu_glow": true,
+    "cu_agent_cursor": true,
+    "cu_show_on_real_display": false,
+    "pinned_workspaces": [],
+    "remote_attach_enabled": false,
+    "remote_bind": null,
+    "credentials": [
+      {
+        "id": "openrouter",
+        "name": "OpenRouter",
+        "stored": false,
+        "base_url": null
+      }
+    ],
+    "tier_credentials": {
+      "brain": "openrouter",
+      "worker": null,
+      "validator": null
+    },
+    "tier_loopback": {
+      "brain": false,
+      "worker": true,
+      "validator": true
+    },
+    "mcp_servers": [
+      {
+        "id": "example",
+        "transport": "stdio",
+        "command": [
+          "python",
+          "-m",
+          "some_mcp"
+        ],
+        "url": "",
+        "enabled": true
+      }
+    ],
+    "speech_enabled": false,
+    "speech_ready": false
+  },
+  "api_key_validated": {
+    "type": "api_key_validated",
+    "seq": 1,
+    "ok": true,
+    "detail": "Key accepted by provider."
+  },
+  "diagnostics_report": {
+    "type": "diagnostics_report",
+    "seq": 1,
+    "checks": [
+      {
+        "name": "daemon",
+        "status": "ok",
+        "detail": "responding (v0.1.0, up 3.2s)",
+        "fix": null
+      },
+      {
+        "name": "api_key",
+        "status": "fail",
+        "detail": "no API key stored in the keychain",
+        "fix": "Open the wizard (gear in the title bar) and store one."
+      },
+      {
+        "name": "provider",
+        "status": "skip",
+        "detail": "not checked \u2014 no API key",
+        "fix": null
+      },
+      {
+        "name": "git",
+        "status": "ok",
+        "detail": "git version 2.50.0 (/usr/bin/git)",
+        "fix": null
+      },
+      {
+        "name": "workspace",
+        "status": "ok",
+        "detail": "project is writable",
+        "fix": null
+      },
+      {
+        "name": "steering",
+        "status": "ok",
+        "detail": "3 steering source(s) parsed",
+        "fix": null
+      }
+    ]
+  },
+  "usage_report": {
+    "type": "usage_report",
+    "seq": 1,
+    "rows": [
+      {
+        "bucket": "session",
+        "key": "sess-1",
+        "tier": "brain",
+        "prompt_tokens": 12000,
+        "cached_prompt_tokens": 8000,
+        "completion_tokens": 3000,
+        "cost": 0.117,
+        "classifier_cost": 0.0025
+      },
+      {
+        "bucket": "day",
+        "key": "2026-08-17",
+        "tier": "worker",
+        "prompt_tokens": 4000,
+        "cached_prompt_tokens": 0,
+        "completion_tokens": 900,
+        "cost": 0.0136,
+        "classifier_cost": 0.0
+      },
+      {
+        "bucket": "week",
+        "key": "2026-08-17",
+        "tier": "validator",
+        "prompt_tokens": 2500,
+        "cached_prompt_tokens": 500,
+        "completion_tokens": 200,
+        "cost": 0.0031,
+        "classifier_cost": 0.0
+      }
+    ]
+  },
+  "memory_proposal": {
+    "type": "memory_proposal",
+    "seq": 21,
+    "session_id": "sess-1",
+    "proposal_id": "mp-1",
+    "files": [
+      {
+        "action": "replace",
+        "path": ".tst/memory/MEMORY.md",
+        "diff": "--- a/.tst/memory/MEMORY.md\n+++ b/.tst/memory/MEMORY.md\n@@ -1 +1 @@\n-old\n+durable: ruff\n",
+        "before": "old\n",
+        "after": "durable: ruff\n"
+      }
+    ]
+  },
+  "usage_exported": {
+    "type": "usage_exported",
+    "seq": 1,
+    "format": "csv",
+    "path": "/home/user/.local/share/tst-desk/exports/usage-20260817T120000Z.csv",
+    "rows": 42
+  },
+  "log_trimmed": {
+    "type": "log_trimmed",
+    "seq": 1,
+    "session_id": "sess-1",
+    "requested_from_seq": 1,
+    "earliest_seq": 8
+  },
+  "artifact_ready": {
+    "type": "artifact_ready",
+    "seq": 22,
+    "session_id": "sess-1",
+    "artifact_id": "art-1",
+    "title": "Notes",
+    "mime": "text/markdown",
+    "path": "notes.md"
+  },
+  "artifact_list": {
+    "type": "artifact_list",
+    "seq": 1,
+    "session_id": "sess-1",
+    "artifacts": [
+      {
+        "artifact_id": "art-1",
+        "title": "Notes",
+        "mime": "text/markdown",
+        "path": "notes.md"
+      }
+    ]
+  },
+  "artifact": {
+    "type": "artifact",
+    "seq": 1,
+    "session_id": "sess-1",
+    "artifact_id": "art-1",
+    "title": "Notes",
+    "mime": "text/markdown",
+    "path": "notes.md"
+  },
+  "screen_frame": {
+    "type": "screen_frame",
+    "seq": 23,
+    "session_id": "sess-1",
+    "path": "screens/aa.png",
+    "mime": "image/png",
+    "width": 1,
+    "height": 1,
+    "tool_call_id": "c1"
+  },
+  "cu_kill_state": {
+    "type": "cu_kill_state",
+    "seq": 1,
+    "killed": true
+  },
+  "cu_session": {
+    "type": "cu_session",
+    "seq": 1,
+    "session_id": "sess-1",
+    "active": true
+  },
+  "design_hit": {
+    "type": "design_hit",
+    "seq": 1,
+    "session_id": "sess-1",
+    "x": 12.0,
+    "y": 34.0,
+    "xpath": "//*[@data-mock-point='12,34']",
+    "role": "button",
+    "attributes": {
+      "id": "mock-target"
+    },
+    "box": {
+      "x": 0.0,
+      "y": 24.0,
+      "width": 80.0,
+      "height": 24.0
+    },
+    "styles": {
+      "display": "inline-block"
+    }
+  },
+  "cu_permissions": {
+    "type": "cu_permissions",
+    "seq": 1,
+    "granted": false,
+    "screen_recording": false,
+    "accessibility": true,
+    "screen_recording_url": "x-apple.systemsettings:com.apple.preferences.privacy-security.ScreenCapture",
+    "accessibility_url": "x-apple.systemsettings:com.apple.preferences.privacy-security.accessibility",
+    "first_run": true,
+    "platform": "macos",
+    "no_gate": "",
+    "uipi": "",
+    "secure_desktop": "",
+    "elevated": false,
+    "uipi_applies": false,
+    "secure_desktop_applies": false,
+    "session_type": "",
+    "wayland": "",
+    "wayland_applies": false,
+    "xtest": "",
+    "xtest_applies": false,
+    "no_display": "",
+    "no_display_applies": false
+  },
+  "list_jobs": {
+    "type": "list_jobs"
+  },
+  "save_job": {
+    "type": "save_job",
+    "id": null,
+    "workspace": "/home/user/project",
+    "instruction": "summarize the inbox",
+    "cadence": "every 1 hour",
+    "next_run": null,
+    "deliver_to": "window",
+    "paused": false
+  },
+  "delete_job": {
+    "type": "delete_job",
+    "job_id": "job-1"
+  },
+  "parse_job": {
+    "type": "parse_job",
+    "text": "every 2 hours in /ws/proj summarize the inbox deliver to slack"
+  },
+  "transcribe": {
+    "type": "transcribe",
+    "audio_b64": "AAAA",
+    "mime": "audio/webm"
+  },
+  "job_list": {
+    "type": "job_list",
+    "seq": 1,
+    "jobs": [
+      {
+        "id": "job-1",
+        "workspace": "/home/user/project",
+        "instruction": "summarize the inbox",
+        "cadence": "every 1 hour",
+        "next_run": null,
+        "deliver_to": "window",
+        "paused": false
+      }
+    ]
+  },
+  "job_draft": {
+    "type": "job_draft",
+    "seq": 1,
+    "ok": true,
+    "detail": "",
+    "workspace": "/ws/proj",
+    "instruction": "summarize the inbox",
+    "cadence": "every 2 hours",
+    "next_run": null,
+    "deliver_to": "slack",
+    "paused": false
+  },
+  "transcript": {
+    "type": "transcript",
+    "seq": 1,
+    "ok": true,
+    "text": "hello from the mic",
+    "detail": ""
+  },
+  "hello_ack": {
+    "type": "hello_ack",
+    "version": 1
+  }
+}

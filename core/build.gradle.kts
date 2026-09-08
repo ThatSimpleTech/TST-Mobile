@@ -19,6 +19,11 @@ kotlin {
     }
 }
 
+// The policy pack is data shared with any other enforcer (tstd, later). It lives at the
+// repo root in policy/ and rides in the core jar as /policy.yaml and /cases.yaml.
+sourceSets["main"].resources.srcDir(rootProject.file("policy"))
+sourceSets["main"].resources.exclude("README.md")
+
 dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
@@ -32,6 +37,9 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // Forward so `./gradlew :core:test -Dassist.liveSuite=1` reaches the test JVM (Q9).
+    val live = System.getProperty("assist.liveSuite") ?: ""
+    systemProperty("assist.liveSuite", live)
     testLogging {
         events("failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

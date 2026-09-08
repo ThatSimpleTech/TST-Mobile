@@ -1,0 +1,219 @@
+# TST Assist policy pack (plan §4). This file is data: the phone's Kotlin enforcer and any
+# other enforcer (tstd, later) read it and must agree on every case in cases.yaml.
+#
+# The agent cannot write this file: it is on the rules-file refusal list.
+#
+# Rules are ordered; the first match wins, like tstd's RULE_TABLE. Refusals come before
+# grants. Anything no rule matches gets `default`.
+#
+# Facts a rule can test: verb, acts (changes anything on the device), app_scoped (lands
+# inside one app: tap/long/type/clear/scroll/swipe/drag/open/screen_ask), keyguard, secure,
+# target_password, target_sensitive, app_allowlisted, open_allowlisted, app_in_goal,
+# app_settings, on_qs (the shade is the observed window; QS taps are not an app grant).
+version: 1
+
+approval_timeout_seconds: 45   # no answer is a deny
+max_tier2_per_turn: 1          # one sensitive action per turn, no chaining
+step_budget: 12                # actions per task before the loop stops and asks
+loop_repeat_limit: 3           # same action this many times in a row stops and asks
+
+# The app allowlist. Anything not listed here is refused for every acting verb, and `open`
+# only launches labels that resolve here. `sensitive_ids` are substrings matched against
+# the view's resource id; a hit makes a tap Tier 2.
+apps:
+  - package: com.whatsapp
+    label: WhatsApp
+    aliases: [whats app, wa]
+    sensitive_ids: [send, call, voice_call, video_call, delete, forward, pay]
+  - package: com.google.android.apps.messaging
+    label: Messages
+    aliases: [sms, texts, mensajes]
+    sensitive_ids: [send, delete, block]
+  - package: com.google.android.dialer
+    label: Phone
+    aliases: [dialer, teléfono, telefono]
+    sensitive_ids: [call, dial, end_call]
+  - package: com.google.android.gm
+    label: Gmail
+    aliases: [mail, email, correo]
+    sensitive_ids: [send, delete, archive, unsubscribe]
+  - package: com.spotify.music
+    label: Spotify
+    aliases: [music, música, musica]
+    sensitive_ids: []
+  - package: com.google.android.deskclock
+    label: Clock
+    aliases: [alarm, alarms, timer, reloj, alarma]
+    sensitive_ids: []
+  - package: com.google.android.calendar
+    label: Calendar
+    aliases: [calendario]
+    sensitive_ids: [delete, save, send]
+  - package: com.google.android.apps.maps
+    label: Maps
+    aliases: [navigation, google maps, mapas]
+    sensitive_ids: [share]
+  - package: com.android.settings
+    label: Settings
+    aliases: [ajustes, configuración, configuracion, wifi, wi-fi, internet, bluetooth, bt]
+    sensitive_ids: []
+  - package: com.google.android.contacts
+    label: Contacts
+    aliases: [people, contactos]
+    sensitive_ids: [delete, save]
+
+# Packages where any change is a settings change (Tier 2).
+settings_packages:
+  - com.android.settings
+  - com.google.android.settings.intelligence
+
+# A control whose label contains one of these words, as a whole word, case- and
+# accent-insensitive, is sensitive: tapping it is Tier 2. English and Spanish, both first-class.
+sensitive_labels:
+  - send
+  - enviar
+  - call
+  - llamar
+  - pay
+  - pagar
+  - buy
+  - comprar
+  - purchase
+  - order
+  - pedir
+  - delete
+  - eliminar
+  - borrar
+  - remove
+  - quitar
+  - install
+  - instalar
+  - uninstall
+  - desinstalar
+  - share
+  - compartir
+  - post
+  - publicar
+  - submit
+  - confirm
+  - confirmar
+  - transfer
+  - transferir
+  - archive
+  - archivar
+  - unsubscribe
+  - block
+  - bloquear
+  - forward
+  - reenviar
+
+rules:
+  # ---- refusals first: no approval can unlock these ----
+  - id: keyguard-locked
+    when: { keyguard: true, acts: true }
+    tier: refused
+    reason: the phone is locked; answers are fine, actions need it unlocked
+  - id: secure-screen
+    when: { secure: true, acts: true }
+    tier: refused
+    reason: this screen hides itself from assistants; hand it back to the person
+  - id: password-field
+    when: { target_password: true, acts: true }
+    tier: refused
+    reason: password fields are never typed into or acted on
+  - id: open-not-allowlisted
+    when: { verb: [open], open_allowlisted: false }
+    tier: refused
+    reason: that app is not on the allowlist
+  - id: app-not-allowlisted
+    when: { app_allowlisted: false, app_scoped: true, on_qs: false }
+    tier: refused
+    reason: this app is not on the allowlist
+
+  # ---- every time ----
+  # Sensitive / settings / non-tree sends first: an outside-goal Send is still Send, not
+  # "open this app". Intent and device verbs are not app-scoped; their own rules fire here.
+  - id: notif-reply
+    when: { verb: [notif_reply] }
+    tier: every
+    reason: replying to a notification sends a message
+  - id: settings-change
+    when: { app_settings: true, verb: [tap, long, type, clear, drag, swipe] }
+    tier: every
+    reason: changing a setting
+  - id: sensitive-control
+    when: { verb: [tap, long, drag, swipe], target_sensitive: true }
+    tier: every
+    reason: this control sends, calls, pays, deletes, installs or shares
+  - id: call-place
+    when: { verb: [call] }
+    tier: every
+    reason: placing a call
+  - id: text-send
+    when: { verb: [text] }
+    tier: every
+    reason: sending a text
+  - id: partner-send
+    when: { verb: [whatsapp, gmail] }
+    tier: every
+    reason: sending a message
+  - id: event-insert
+    when: { verb: [event] }
+    tier: every
+    reason: writing a calendar event
+  - id: contact-add
+    when: { verb: [contact_add] }
+    tier: every
+    reason: writing a contact
+  - id: device-control
+    when: { verb: [torch, dnd, brightness, volume] }
+    tier: every
+    reason: changing a device setting
+  - id: qs-tile
+    when: { verb: [tap, long], on_qs: true }
+    tier: every
+    reason: toggling a Quick Settings tile
+  - id: outside-goal-apps
+    when: { app_in_goal: false, app_scoped: true }
+    tier: every
+    reason: this app is outside what the task started with
+
+  # ---- silent ----
+  - id: read-only
+    when: { verb: [scroll, back, home, recents, wait, more, notif_list, done, ask, qs] }
+    tier: silent
+  - id: open-allowlisted
+    when: { verb: [open] }
+    tier: silent
+
+  # ---- once per task ----
+  - id: notif-open
+    when: { verb: [notif_open] }
+    tier: once
+  - id: screen-ask
+    when: { verb: [screen_ask] }
+    tier: once
+    reason: a screenshot goes to the vision model
+  - id: alarm-set
+    when: { verb: [alarm] }
+    tier: once
+  - id: timer-set
+    when: { verb: [timer] }
+    tier: once
+  - id: navigate-start
+    when: { verb: [navigate] }
+    tier: once
+  - id: media-control
+    when: { verb: [media] }
+    tier: once
+  - id: partner-media
+    when: { verb: [spotify] }
+    tier: once
+  - id: contact-lookup
+    when: { verb: [contact_lookup] }
+    tier: once
+  - id: in-app-control
+    when: { verb: [tap, long, type, clear, drag, swipe] }
+    tier: once
+
+default: refused

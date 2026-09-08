@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TST Assist</string>
+    <string name="a11y_label">TST Assist (screen driver)</string>
+    <string name="a11y_description">Reads the screen as labeled controls and taps, types and scrolls on your behalf, one approved step at a time. It is not an accessibility tool. Nothing leaves the phone except to the model endpoint you configured.</string>
+    <string name="notif_label">TST Assist (notifications)</string>
+    <string name="kill_tile_label">Stop Assist</string>
+    <string name="channel_approvals">Approvals</string>
+    <string name="channel_task">Running task</string>
+    <string name="approve">Approve</string>
+    <string name="deny">Deny</string>
+    <string name="stop">Stop</string>
+</resources>
