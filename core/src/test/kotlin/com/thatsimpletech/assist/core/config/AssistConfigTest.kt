@@ -181,6 +181,29 @@ class AssistConfigTest {
     }
 
     @Test
+    fun userOverlayStillSingleHost() {
+        val local = AssistConfig.loadDefault().withUserEndpoint(
+            baseUrl = "http://192.168.1.10:11434/v1",
+            slug = "llama3.1",
+            credential = null,
+            template = "local",
+        ).copy(spendCapUsd = 2.5)
+        assertEquals(setOf("192.168.1.10"), local.allowedHosts)
+        assertEquals(2.5, local.spendCapUsd)
+
+        // A BYOM overlay of a family-blocked host is still one host; the block is ProviderPolicy, not this allowlist.
+        val blocked = AssistConfig.loadDefault().withUserEndpoint(
+            baseUrl = "https://api.deepseek.com/v1",
+            slug = "deepseek-chat",
+            credential = "openrouter",
+            template = "home",
+        )
+        assertEquals(setOf("api.deepseek.com"), blocked.allowedHosts)
+        assertEquals("openrouter.ai", AssistConfig.loadDefault().allowedHosts.single())
+        assertEquals("moonshotai/kimi-k3", AssistConfig.loadDefault().tier(TierName.BRAIN).slug)
+    }
+
+    @Test
     fun userCloudEndpointKeepsOpenrouterHostAndPrices() {
         val cfg = AssistConfig.loadDefault().withUserEndpoint(
             baseUrl = "https://openrouter.ai/api/v1",

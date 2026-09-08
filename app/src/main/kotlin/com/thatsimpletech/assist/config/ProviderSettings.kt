@@ -3,18 +3,24 @@ package com.thatsimpletech.assist.config
 import android.content.Context
 import com.thatsimpletech.assist.core.config.AssistConfig
 import com.thatsimpletech.assist.core.config.Endpoint
+import com.thatsimpletech.assist.core.grammar.HintCodec
+import com.thatsimpletech.assist.core.net.ProviderPolicy
 import java.net.URI
 import java.net.URISyntaxException
 
 /**
  * What the person typed on the settings screen: which brain, which model, which
- * OpenAI-compatible URL. The shipped YAML is still the price book; this overlay is the
- * only way a phone picks a model without editing config.yaml.
+ * OpenAI-compatible URL, plus spend cap, hint codec, and family mode. The shipped
+ * YAML is still the price book; this overlay is the only way a phone picks a model
+ * without editing config.yaml.
  */
 data class ProviderSettings(
     val mode: Mode,
     val model: String,
     val baseUrl: String,
+    val familyMode: Boolean = false,
+    val spendCapUsd: Double? = null,
+    val hintCodec: String = HintCodec.Numeric.word,
 ) {
     enum class Mode { CLOUD, LOCAL, CUSTOM }
 
@@ -26,6 +32,8 @@ data class ProviderSettings(
 
     /** OpenRouter refuses without a key. Local Ollama and most home boxes do not need one. */
     val requiresKey: Boolean get() = mode == Mode.CLOUD
+
+    fun codec(): HintCodec = HintCodec.parse(hintCodec)
 
     fun resolvedUrl(): String = when (mode) {
         Mode.CLOUD -> OPENROUTER_URL
@@ -41,18 +49,22 @@ data class ProviderSettings(
         }
         val credential = if (mode == Mode.CLOUD) AssistConfig.DEFAULT_CREDENTIAL else null
         return shipped.withUserEndpoint(resolvedUrl(), slug, credential, template)
+            .copy(spendCapUsd = spendCapUsd)
     }
 
     fun problem(): String? {
         if (model.trim().isEmpty()) return "set a model id"
-        if (mode == Mode.CLOUD) return null
-        val url = try {
-            normalizeUrl(baseUrl)
-        } catch (e: IllegalArgumentException) {
-            return e.message
+        if (spendCapUsd != null && spendCapUsd <= 0.0) return "spend cap must be > 0 (leave empty for none)"
+        if (mode != Mode.CLOUD) {
+            val url = try {
+                normalizeUrl(baseUrl)
+            } catch (e: IllegalArgumentException) {
+                return e.message
+            }
+            if (!Endpoint.isNetwork(url)) return "base URL must be http or https"
+            if (Endpoint.host(url) == null) return "base URL has no host"
         }
-        if (!Endpoint.isNetwork(url)) return "base URL must be http or https"
-        if (Endpoint.host(url) == null) return "base URL has no host"
+        ProviderPolicy.familyBlockReason(resolvedUrl(), familyMode)?.let { return it }
         return null
     }
 
@@ -69,19 +81,27 @@ data class ProviderSettings(
             } catch (_: Exception) {
                 Mode.CLOUD
             }
+            val capRaw = p.getString("spend_cap_usd", null)?.trim().orEmpty()
             return ProviderSettings(
                 mode = mode,
                 model = p.getString("model", DEFAULT_CLOUD_MODEL) ?: DEFAULT_CLOUD_MODEL,
                 baseUrl = p.getString("base_url", DEFAULT_LOCAL_URL) ?: DEFAULT_LOCAL_URL,
+                familyMode = p.getBoolean("family_mode", false),
+                spendCapUsd = capRaw.toDoubleOrNull()?.takeIf { it > 0.0 },
+                hintCodec = HintCodec.parse(p.getString("hint_codec", HintCodec.Numeric.word) ?: HintCodec.Numeric.word).word,
             )
         }
 
         fun save(ctx: Context, s: ProviderSettings) {
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            val e = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString("mode", s.mode.name)
                 .putString("model", s.model.trim())
                 .putString("base_url", s.baseUrl.trim())
-                .apply()
+                .putBoolean("family_mode", s.familyMode)
+                .putString("hint_codec", HintCodec.parse(s.hintCodec).word)
+            if (s.spendCapUsd != null) e.putString("spend_cap_usd", s.spendCapUsd.toString())
+            else e.remove("spend_cap_usd")
+            e.apply()
         }
 
         fun normalizeUrl(raw: String): String {

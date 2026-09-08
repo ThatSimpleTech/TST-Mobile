@@ -11,7 +11,10 @@ import com.thatsimpletech.assist.audit.AndroidSqlExecutor
 import com.thatsimpletech.assist.core.audit.AuditStore
 import com.thatsimpletech.assist.config.ProviderSettings
 import com.thatsimpletech.assist.core.config.AssistConfig
+import com.thatsimpletech.assist.core.config.TierName
+import com.thatsimpletech.assist.core.grammar.HintCodec
 import com.thatsimpletech.assist.core.net.Endpoints
+import com.thatsimpletech.assist.core.net.ProviderPolicy
 import com.thatsimpletech.assist.core.policy.PolicyPack
 import com.thatsimpletech.assist.core.redact.Redactor
 import com.thatsimpletech.assist.core.secrets.SecretStore
@@ -43,8 +46,9 @@ object Graph {
     val pack: PolicyPack by lazy { PolicyPack.loadDefault() }
 
     /**
-     * Active config: shipped YAML plus the settings-screen overlay (model, base URL, mode).
-     * Reloaded when the person taps Save provider, so a running task keeps the old client.
+     * Active config: shipped YAML plus the settings-screen overlay (model, base URL, mode,
+     * spend cap). Reloaded when the person taps Save provider, so a running task keeps the
+     * old client.
      */
     val config: AssistConfig get() = _config
     val endpoints: Endpoints get() = _endpoints
@@ -78,14 +82,21 @@ object Graph {
         val dir = File(app.filesDir, "rules").apply { mkdirs() }
         val assistant = File(dir, InstructionStack.DEVICE_FILE)
         if (!assistant.exists()) assistant.writeText(DefaultInstructions.load())
+        val profiles = File(dir, InstructionStack.PROFILES_DIR).apply { mkdirs() }
+        val letters = File(profiles, "${InstructionStack.LETTERS_PROFILE}.md")
+        if (!letters.exists()) letters.writeText(DefaultInstructions.lettersProfile())
         dir
     }
     val rulesBoundary: RulesBoundary by lazy { RulesBoundary(rulesDir.toPath()) }
 
-    /** The resolved instruction stack for a run (device layer only until profiles exist). */
-    fun instructions(): String {
-        val layers = InstructionStack.resolve(rulesDir.toPath(), null, "")
-        return layers.first { it.name == InstructionStack.DEVICE }.text.ifBlank { DefaultInstructions.load() }
+    /**
+     * Device instructions, plus the letters profile when that codec is on. [codec] is
+     * captured at run start so a settings change cannot switch mid-task.
+     */
+    fun instructions(codec: HintCodec = provider.codec()): String {
+        val profile = InstructionStack.LETTERS_PROFILE.takeIf { codec is HintCodec.Letters }
+        val layers = InstructionStack.resolve(rulesDir.toPath(), profile, "")
+        return InstructionStack.deviceAndProfile(layers, DefaultInstructions.load())
     }
 
     /** A random id minted once; it only ever appears in this phone's own audit rows. */
@@ -104,8 +115,11 @@ object Graph {
 
     /** Rebuilds config and the outbound host gate from what is on the settings screen. */
     fun reloadProvider() {
-        val next = provider.toConfig(AssistConfig.loadDefault())
+        val settings = provider
+        val next = settings.toConfig(AssistConfig.loadDefault())
         _config = next
-        _endpoints = Endpoints(next.allowedHosts)
+        val brain = next.tier(TierName.BRAIN).baseUrl
+        val hosts = if (ProviderPolicy.hostAllowed(brain, settings.familyMode)) next.allowedHosts else emptySet()
+        _endpoints = Endpoints(hosts)
     }
 }

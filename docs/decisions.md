@@ -167,3 +167,11 @@ A failed validator is not `Outcome.Done`. Q6 maps fail to `Outcome.Ask` with the
 
 A new `CostTracker` per `TaskController.run` used to make `dayCost == sessionCost`. Day spend is display-only (Q7: the pause cap is session). Before the first `record` of a session, `CostTracker.seedDayCost` takes `AuditStore.daySpend`: the sum of non-classifier `model_calls` whose local calendar day matches now. This session is not in the query yet, so it is not double-counted. Overlay and the persistent task notification both show `MeterText.chip` (turn, session, day, by tier, remaining). On `Outcome.Paused` the last chip includes `PAUSED`. The gold tap highlight stays on `OverlayCard`; the meter is a separate untouchable overlay.
 
+## TM-020 (2026-09-08) Chinese cloud hosts blocked in family mode; OpenRouter slugs are not endpoints
+
+“Chinese cloud endpoints” (plan §9.3 M4) are **hosts**, not OpenRouter slugs. The shipped `tst-default` brain is `moonshotai/kimi-k3` on `openrouter.ai`; treating the slug as Chinese would empty the default list and desync TST Desk.
+
+`ProviderPolicy` holds a closed host blocklist (`api.deepseek.com`, `api.moonshot.cn`, `api.moonshot.ai`, DashScope, BigModel, MiniMax, Qianfan, Hunyuan, StepFun, Lingyi, Spark, SenseNova). `openrouter.ai` is not on it. Classification is `Endpoint.host` (a URI parse); nothing resolves DNS.
+
+Family mode **on**: a blocked host is refused even if Custom names it. Settings Save and `Planners.forConfig` say `"that host is blocked in family mode"`. `Graph.reloadProvider` will not put that host on `Endpoints`. Family mode **off** (BYOM): any `base_url` may be typed; `Endpoints` still allowlists only that host (TM-015). Device and loopback stay allowed. The default picker is OpenRouter / Local / LAN / Custom — no blocked-host chip, and Device stays an honest refusal (TM-013).
+

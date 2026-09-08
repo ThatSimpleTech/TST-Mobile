@@ -11,6 +11,7 @@ import com.thatsimpletech.assist.core.loop.ModelEndStateValidator
 import com.thatsimpletech.assist.core.loop.Planner
 import com.thatsimpletech.assist.core.meter.CostTracker
 import com.thatsimpletech.assist.core.net.ProviderClient
+import com.thatsimpletech.assist.core.net.ProviderPolicy
 import com.thatsimpletech.assist.core.secrets.SecretStore
 import com.thatsimpletech.assist.core.secrets.SecretStoreLockedException
 
@@ -25,6 +26,9 @@ object Planners {
             EndpointKind.ON_DEVICE ->
                 Choice(null, "device", "Device mode (on-device model) is not built yet; pick a cloud or home preset")
             EndpointKind.ON_BOX, EndpointKind.TAILNET, EndpointKind.REMOTE -> {
+                ProviderPolicy.familyBlockReason(tier.baseUrl, Graph.provider.familyMode)?.let { reason ->
+                    return Choice(null, mode(tier.kind), reason)
+                }
                 val slug = tier.slug ?: return Choice(null, mode(tier.kind), "the brain tier has no model slug; set one in config")
                 val credentialId = tier.credentialId
                 val key = if (credentialId == null) {

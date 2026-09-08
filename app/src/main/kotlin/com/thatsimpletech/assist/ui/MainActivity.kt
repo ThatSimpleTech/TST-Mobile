@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -19,6 +20,8 @@ import com.thatsimpletech.assist.a11y.AssistAccessibilityService
 import com.thatsimpletech.assist.config.ProviderSettings
 import com.thatsimpletech.assist.core.config.Endpoint
 import com.thatsimpletech.assist.core.config.TierName
+import com.thatsimpletech.assist.core.grammar.HintCodec
+import com.thatsimpletech.assist.core.net.ProviderPolicy
 import com.thatsimpletech.assist.core.policy.Conformance
 import com.thatsimpletech.assist.core.policy.PolicyEnforcer
 import com.thatsimpletech.assist.core.secrets.SecretStore
@@ -29,18 +32,24 @@ import com.thatsimpletech.assist.task.TaskForegroundService
 
 /**
  * The whole settings surface for now: status of the three grants, the provider (OpenRouter,
- * local/LAN, or a custom OpenAI-compatible server), a goal box, the kill switch, and the
- * policy self-check. Framework views only; a nicer surface is later work.
+ * local/LAN, or a custom OpenAI-compatible server), spend cap, hint codec, family mode,
+ * a goal box, the kill switch, and the policy self-check. Framework views only; a nicer
+ * surface is later work.
  */
 class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var model: EditText
     private lateinit var url: EditText
     private lateinit var key: EditText
+    private lateinit var spendCap: EditText
+    private lateinit var family: CheckBox
     private lateinit var cloudBtn: Button
     private lateinit var localBtn: Button
     private lateinit var customBtn: Button
+    private lateinit var numericBtn: Button
+    private lateinit var lettersBtn: Button
     private var mode: ProviderSettings.Mode = ProviderSettings.Mode.CLOUD
+    private var codec: String = HintCodec.Numeric.word
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,9 +72,10 @@ class MainActivity : Activity() {
         })
 
         col.addView(heading("Provider", dp))
-        cloudBtn = button("OpenRouter") { setMode(ProviderSettings.Mode.CLOUD) }
-        localBtn = button("Local / LAN") { setMode(ProviderSettings.Mode.LOCAL) }
-        customBtn = button("Custom server") { setMode(ProviderSettings.Mode.CUSTOM) }
+        val picker = ProviderPolicy.defaultPickerModes()
+        cloudBtn = button(picker[0]) { setMode(ProviderSettings.Mode.CLOUD) }
+        localBtn = button(picker[1]) { setMode(ProviderSettings.Mode.LOCAL) }
+        customBtn = button(picker[2]) { setMode(ProviderSettings.Mode.CUSTOM) }
         col.addView(cloudBtn)
         col.addView(localBtn)
         col.addView(customBtn)
@@ -88,14 +98,35 @@ class MainActivity : Activity() {
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
         }
         col.addView(key)
+
+        spendCap = EditText(this).apply {
+            hint = "Spend cap USD (empty = none)"
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+        col.addView(spendCap)
+
+        col.addView(heading("Hint codec", dp))
+        numericBtn = button(HintCodec.Numeric.word) { setCodec(HintCodec.Numeric.word) }
+        lettersBtn = button(HintCodec.Letters.word) { setCodec(HintCodec.Letters.word) }
+        col.addView(numericBtn)
+        col.addView(lettersBtn)
+
+        family = CheckBox(this).apply { text = "Family mode" }
+        col.addView(family)
+
         col.addView(button("Save provider") { saveProvider() })
         col.addView(button("Forget key") { Graph.secrets.delete(SecretStore.account(Graph.CREDENTIAL_ID)); render() })
 
         val saved = ProviderSettings.load(this)
         mode = saved.mode
+        codec = saved.codec().word
         model.setText(saved.model)
         url.setText(saved.baseUrl)
+        spendCap.setText(saved.spendCapUsd?.toString() ?: "")
+        family.isChecked = saved.familyMode
         setMode(saved.mode)
+        setCodec(saved.codec().word)
 
         val goal = EditText(this).apply { hint = "What should I do? (e.g. reply to Maria confirming 7pm)" }
         col.addView(goal)
@@ -144,8 +175,30 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun setCodec(next: String) {
+        codec = HintCodec.parse(next).word
+        numericBtn.alpha = if (codec == HintCodec.Numeric.word) 1f else 0.45f
+        lettersBtn.alpha = if (codec == HintCodec.Letters.word) 1f else 0.45f
+    }
+
     private fun saveProvider() {
-        val next = ProviderSettings(mode, model.text.toString(), url.text.toString())
+        val capRaw = spendCap.text.toString().trim()
+        val cap = if (capRaw.isEmpty()) {
+            null
+        } else {
+            capRaw.toDoubleOrNull() ?: run {
+                status.append("\nspend cap must be a number (leave empty for none)")
+                return
+            }
+        }
+        val next = ProviderSettings(
+            mode = mode,
+            model = model.text.toString(),
+            baseUrl = url.text.toString(),
+            familyMode = family.isChecked,
+            spendCapUsd = cap,
+            hintCodec = codec,
+        )
         val problem = next.problem()
         if (problem != null) {
             status.append("\n$problem")
@@ -191,6 +244,9 @@ class MainActivity : Activity() {
                     else -> "○ no API key (ok for local/custom)\n"
                 },
             )
+            append("hints: ${settings.codec().word}\n")
+            if (settings.familyMode) append("family mode on\n")
+            settings.spendCapUsd?.let { append("session pauses at \$$it\n") }
             append(if (GlobalKillSwitch.killed) "■ STOPPED by kill switch\n" else "● armed\n")
         }
     }

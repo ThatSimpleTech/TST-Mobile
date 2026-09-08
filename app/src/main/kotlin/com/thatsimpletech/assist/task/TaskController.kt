@@ -59,10 +59,11 @@ object TaskController {
             )
             val sessionId = UUID.randomUUID().toString()
             audit.startSession(sessionId, Graph.deviceId, choice.mode, goal)
+            val codec = Graph.provider.codec()
             val runner = TaskRunner(
                 observer = observer, planner = planner, executor = executor, approvals = Graph.approvals,
                 kill = GlobalKillSwitch, enforcer = enforcer, builder = ObservationBuilder(),
-                parser = ActionParser(), instructions = Graph.instructions(),
+                parser = ActionParser(codec), instructions = Graph.instructions(codec),
                 listener = AuditListener(audit, sessionId, meter, Graph.clock),
                 spend = SpendGuard {
                     SpendSnapshot(

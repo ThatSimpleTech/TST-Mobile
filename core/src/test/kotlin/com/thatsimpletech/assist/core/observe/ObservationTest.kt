@@ -1,6 +1,7 @@
 package com.thatsimpletech.assist.core.observe
 
 import com.thatsimpletech.assist.core.grammar.Action
+import com.thatsimpletech.assist.core.grammar.HintCodec
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -155,6 +156,29 @@ class ObservationTest {
         assertEquals(plain, flagged, "intent/QS verbs do not change the observation block")
         assertFalse("on_qs" in flagged.lowercase())
         assertFalse(flagged.lines()[1].contains("qs="), flagged.lines()[1])
+    }
+
+    @Test
+    fun letterCodecQuotesLabelsTheSame() {
+        val screen = Screen(
+            "com.whatsapp", "Conversation", display,
+            nodes = listOf(
+                node("back", Role.BTN, "Back", top = 0),
+                node("attach", Role.BTN, "Attach", top = 100),
+                node("send", Role.BTN, "Send", top = 200),
+            ),
+        )
+        val obs = ObservationBuilder(coverage = CoverageDetector(minNodesPerMegapixel = 0.0)).observe(screen)
+        val letters = ObservationFormatter.format(obs, codec = HintCodec.Letters)
+        val numeric = ObservationFormatter.format(obs)
+        assertTrue("[c] btn \"Send\"" in letters, letters)
+        assertTrue("[3] btn \"Send\"" in numeric, numeric)
+        assertTrue("[a] btn \"Back\"" in letters, letters)
+        assertTrue("[b] btn \"Attach\"" in letters, letters)
+        assertEquals(
+            numeric.replace("[1]", "[a]").replace("[2]", "[b]").replace("[3]", "[c]"),
+            letters,
+        )
     }
 
     @Test

@@ -17,6 +17,8 @@ object InstructionStack {
     const val TASK = "task"
     const val DEVICE_FILE = "ASSISTANT.md"
     const val PROFILES_DIR = "profiles"
+    /** Settings letters codec: a plain profile label, not a path. */
+    const val LETTERS_PROFILE = "letters"
 
     /** A profile name is a label, not a path: one segment, no separators, nothing hidden. */
     private val PROFILE_NAME = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
@@ -39,6 +41,16 @@ object InstructionStack {
     }
 
     fun totalTokens(layers: List<Layer>): Int = layers.sumOf { it.tokens }
+
+    /**
+     * Device plus profile text for the planner prompt. The task layer is the goal
+     * and is not mixed in; a missing device file uses [fallbackDevice].
+     */
+    fun deviceAndProfile(layers: List<Layer>, fallbackDevice: String): String {
+        val device = layers.firstOrNull { it.name == DEVICE }?.text.orEmpty().ifBlank { fallbackDevice }
+        val profile = layers.firstOrNull { it.name == PROFILE }?.text?.trim().orEmpty()
+        return if (profile.isEmpty()) device else "$device\n\n$profile"
+    }
 
     /** The inspector view: a per-layer table, the total, then each layer's text under its own heading. */
     fun render(layers: List<Layer>): String = buildString {
