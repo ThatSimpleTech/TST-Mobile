@@ -36,7 +36,7 @@ object Planners {
                     return Choice(null, mode(tier.kind), "no provider key stored for '$credentialId'; add it in the app")
                 }
                 val client = ProviderClient(Graph.endpoints, tier.baseUrl, key, slug)
-                Choice(CloudPlanner(client, meter, tier, TierName.BRAIN), mode(tier.kind), "")
+                Choice(CloudPlanner(client, meter, tier, TierName.BRAIN, Graph.pack), mode(tier.kind), "")
             }
         }
     }

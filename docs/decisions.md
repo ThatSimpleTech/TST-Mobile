@@ -151,3 +151,9 @@ Hitting `AssistConfig.spendCapUsd` pauses the session: no further provider call,
 
 The loop owns the pause. `SpendGuard` reads `CostTracker.sessionCost()` against the cap at the top of each step, before `planner.next`. Day spend is display-only. Classifier / validator-as-classifier calls already sit off `sessionCost()` (`CostTracker.record(..., isClassifier = true)`), so a validator ping cannot itself trip the cap. Raising the cap and running again is a new `TaskController.run`; there is no in-session resume in M2.
 
+## TM-019 (2026-09-08) Planner-emitted goal apps; infer is fallback only
+
+Production no longer uses `GoalApps.infer` as the only source of the intent lock. `Planner.planGoalApps` is one metered brain call before `TaskRunner.run` (not a loop step). The reply is one `apps` line; labels and packages are intersected with the allowlist; invented names are dropped, never launched. Empty remains valid (TM-014: the first app-scoped tree action is a card). The whole allowlist is never the default.
+
+When the planner returns empty (`apps none`, prose, HTTP failure), `GoalApps.infer` is the fallback (Q8). Infer itself stays empty when the goal names no allowlisted label.
+
