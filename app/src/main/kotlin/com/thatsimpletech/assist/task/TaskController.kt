@@ -4,6 +4,7 @@ import com.thatsimpletech.assist.Graph
 import com.thatsimpletech.assist.a11y.AssistAccessibilityService
 import com.thatsimpletech.assist.a11y.EmptyObserver
 import com.thatsimpletech.assist.a11y.NodeExecutor
+import com.thatsimpletech.assist.a11y.ScreenCapture
 import com.thatsimpletech.assist.a11y.TreeObserver
 import com.thatsimpletech.assist.approval.OverlayMeter
 import com.thatsimpletech.assist.core.grammar.ActionParser
@@ -57,6 +58,16 @@ object TaskController {
             val devices = DeviceControls(appContext, PermissionGate(appContext))
             val partners = PartnerRouter(AppFunctionExecutor(appContext), intents)
             val media = SessionMedia(appContext)
+            val vision = if (service != null && choice.client != null && choice.tier != null) {
+                ScreenAskBrain(
+                    capture = { ScreenCapture.jpeg(service) },
+                    client = choice.client,
+                    meter = meter,
+                    tier = choice.tier,
+                )
+            } else {
+                null
+            }
             val observer: Observer
             val executor: NodeExecutor
             if (service != null) {
@@ -66,7 +77,7 @@ object TaskController {
                     context = service, pack = pack,
                     notifications = AssistNotificationListener.instance ?: AssistNotificationListener.unavailable,
                     intents = intents, devices = devices, partners = partners, media = media,
-                    service = service, walker = walker,
+                    service = service, walker = walker, vision = vision,
                 )
             } else {
                 observer = EmptyObserver(appContext)

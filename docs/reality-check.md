@@ -70,7 +70,7 @@ Conformance: `policy/cases.yaml` is loaded and every rule has a case (`PolicyCon
 
 ## 4. Grammar and observation vs plan §7
 
-Closed verbs match the table. `drag` is implemented (gesture). `screen ask` is parsed and then the executor says no vision model is configured.
+Closed verbs match the table. `drag` is implemented (gesture). `screen ask` captures a JPEG and posts it to the active brain (TM-027).
 
 Parser: first non-empty line; one layer of backticks stripped; unknown verb/hint is an error; one repair then stop. Matches the plan.
 
@@ -178,7 +178,7 @@ M1, as this repo can claim it today:
 - On a Pixel: **never**.
 - P3 keyguard matrix, P7 banking, P8 FLAG_SECURE, C2 gestures on device, C3 twenty multi-step tasks, C7 login screen: **unverified**. Those are the M1 *verify* column, and they need the 7 Pro.
 
-M2 code is on `grok/m2` (intents and direct APIs, live meter chip with day hydration, spend-cap pause, planner-emitted goal apps, family host block, end-state validator, model-profile suite, app socket scan). Pixel 7 Pro verify is still **unverified**. The three-brain suite in CI is the **offline fixtures**; live calls are opt-in (`-Dassist.liveSuite=1`) and are not claimed as having run. Home as tstd, Device brain, voice, vision, memory: **not this branch**. Do not invent plan §§10–17.
+M2 code is on `grok/m2` (intents and direct APIs, live meter chip with day hydration, spend-cap pause, planner-emitted goal apps, family host block, end-state validator, model-profile suite, app socket scan). Pixel 7 Pro verify is still **unverified**. The three-brain suite in CI is the **offline fixtures**; live calls are opt-in (`-Dassist.liveSuite=1`) and are not claimed as having run. Home as tstd, Device brain, sherpa-onnx voice, memory: **not this branch**. `screen ask` (M6 v1) posts a JPEG to the active brain (TM-027). Do not invent plan §§10–17.
 
 ---
 

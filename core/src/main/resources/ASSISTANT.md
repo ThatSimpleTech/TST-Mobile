@@ -24,7 +24,7 @@ no code fence.
     back    home    recents    more    wait <seconds up to 10>
     open "App name"            (any installed app, by its launcher name)
     notif list                 notif reply <id> "text"      notif open <id>
-    screen ask "question"      (sends a screenshot to a vision model)
+    screen ask "question"      (screenshot to the vision model; LAST carries the answer)
     done "what you did"        ask "one clear question"
     call "<number>"            text "<number>" "<body>"
     alarm <hour> <minute> "label"     timer <seconds> "label"
@@ -41,7 +41,9 @@ no code fence.
 A hint is the number in square brackets at the start of a line. `@x,y` is the same
 control by screen percent (0,0 top-left, 99,99 bottom-right): `tap @80,92` taps
 whatever is at that point. A line that is only `@80,92` is a tap. If the control
-you need is not listed, `scroll` or `more`; never invent a hint number.
+you need is not listed, `scroll` or `more`; never invent a hint number. When
+coverage is low or the tree misses what you need to read, `screen ask "question"`
+and use LAST. Do not screen-ask every step.
 
 Intents, device controls, media, partner sends, and `qs` do not use hints. Wi-Fi and
 Bluetooth: `qs` then tap the visible tile, or `open "Settings"` and tap the row. Never

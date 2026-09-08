@@ -141,4 +141,29 @@ class ProviderClientTest {
         assertFalse(key in e.message!!)
         assertEquals(0, server.requestCount)
     }
+
+    @Test
+    fun imageMessagesUseTheOpenAiContentArray() = withServer { server, endpoints ->
+        server.enqueue(reply("""{"prompt_tokens":10,"completion_tokens":5}"""))
+        val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 1, 2, 3)
+        val client = ProviderClient(endpoints, server.url("/v1").toString(), key, "gpt-x")
+        runBlocking { client.chat(listOf(ChatMessage("user", "what is the total?", images = listOf(jpeg))), 64, 0.0) }
+        val body = Json.parseToJsonElement(server.takeRequest().body.readUtf8()).jsonObject
+        val content = body["messages"]!!.jsonArray[0].jsonObject["content"]!!.jsonArray
+        assertEquals("text", content[0].jsonObject["type"]!!.jsonPrimitive.content)
+        assertEquals("what is the total?", content[0].jsonObject["text"]!!.jsonPrimitive.content)
+        assertEquals("image_url", content[1].jsonObject["type"]!!.jsonPrimitive.content)
+        val url = content[1].jsonObject["image_url"]!!.jsonObject["url"]!!.jsonPrimitive.content
+        assertTrue(url.startsWith("data:image/jpeg;base64,"))
+        val decoded = java.util.Base64.getDecoder().decode(url.removePrefix("data:image/jpeg;base64,"))
+        assertEquals(jpeg.toList(), decoded.toList())
+    }
+
+    @Test
+    fun chatMessageToStringDoesNotDumpTheJpeg() {
+        val jpeg = ByteArray(32) { 0xFF.toByte() }
+        val m = ChatMessage("user", "q", images = listOf(jpeg))
+        assertEquals("ChatMessage(role=user, chars=1, images=1)", m.toString())
+        assertFalse("/9j" in m.toString())
+    }
 }

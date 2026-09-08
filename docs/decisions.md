@@ -207,3 +207,10 @@ Audio does not go to EZER or to a cloud STT. The Pixel's on-device engine is sti
 
 Keyguard: a spoken goal does not auto-run while locked (plan §8 answers-only). Long-press power still opens MainActivity and starts listening. Speak-results is a toggle (default on); the spend chip is stripped before TTS (`VoiceCopy.spokenOutcome`). `AssistRecognitionService` stays an error stub so we do not nest recognizers.
 
+## TM-027 (2026-09-08) `screen ask` is a JPEG to the active brain
+
+M6 v1: `screen ask "question"` captures the display (`AccessibilityService.takeScreenshot`), JPEG-scales to 1080px, and posts an OpenAI-compatible image_url part through `ProviderClient` to the same host as the brain. No extra Endpoints, no tst-cu-mcp, no UI-TARS (TM-008). Spend is recorded on the session ledger, not as a classifier.
+
+Secure windows and a missing screen driver fail honestly. Coverage-low still drives the tree; the observation NOTE tells the model it may `screen ask`. Auto-screenshot on low coverage is not this slice. Policy is unchanged: once per task in the goal app, outside-goal-apps every time, keyguard/secure still refuse.
+
+

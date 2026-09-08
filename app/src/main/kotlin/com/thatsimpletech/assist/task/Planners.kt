@@ -19,7 +19,13 @@ import com.thatsimpletech.assist.core.secrets.SecretStoreLockedException
 
 /** Picks the brain for the configured preset (plan §3 planner modes). Says plainly when it cannot. */
 object Planners {
-    data class Choice(val planner: Planner?, val mode: String, val reason: String)
+    data class Choice(
+        val planner: Planner?,
+        val mode: String,
+        val reason: String,
+        val client: ProviderClient? = null,
+        val tier: TierConfig? = null,
+    )
 
     fun forConfig(meter: CostTracker): Choice {
         val config = Graph.config
@@ -48,7 +54,7 @@ object Planners {
                     return Choice(null, mode(tier.kind), "no provider key stored for '$credentialId'; add it in the app")
                 }
                 val client = ProviderClient(Graph.endpoints, tier.baseUrl, key, slug)
-                Choice(CloudPlanner(client, meter, tier, TierName.BRAIN, Graph.pack), mode(tier.kind), "")
+                Choice(CloudPlanner(client, meter, tier, TierName.BRAIN, Graph.pack), mode(tier.kind), "", client, tier)
             }
         }
     }

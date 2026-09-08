@@ -22,7 +22,16 @@ import java.io.IOException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-data class ChatMessage(val role: String, val content: String)
+data class ChatMessage(
+    val role: String,
+    val content: String,
+    val images: List<ByteArray> = emptyList(),
+) {
+    /** Never dump JPEG bytes into logs. */
+    override fun toString(): String =
+        "ChatMessage(role=$role, chars=${content.length}, images=${images.size})"
+}
+
 
 /**
  * What the provider reported. [cachedPromptTokens] is null when the provider said nothing
@@ -58,7 +67,7 @@ class ProviderClient(
         val body = buildJsonObject {
             put("model", model)
             put("messages", buildJsonArray {
-                for (m in messages) add(buildJsonObject { put("role", m.role); put("content", m.content) })
+                for (m in messages) add(encodeMessage(m))
             })
             put("max_tokens", maxTokens)
             put("temperature", temperature)
@@ -74,6 +83,28 @@ class ProviderClient(
             val text = r.body.string()
             if (!r.isSuccessful) throw ProviderException(r.code, "provider $host returned HTTP ${r.code}: ${scrub(text)}")
             return parse(text)
+        }
+    }
+
+    private fun encodeMessage(m: ChatMessage) = buildJsonObject {
+        put("role", m.role)
+        if (m.images.isEmpty()) {
+            put("content", m.content)
+        } else {
+            put("content", buildJsonArray {
+                add(buildJsonObject {
+                    put("type", "text")
+                    put("text", m.content)
+                })
+                for (img in m.images) {
+                    add(buildJsonObject {
+                        put("type", "image_url")
+                        put("image_url", buildJsonObject {
+                            put("url", "data:image/jpeg;base64,${b64(img)}")
+                        })
+                    })
+                }
+            })
         }
     }
 
@@ -155,5 +186,7 @@ class ProviderClient(
             val open = Regex("(?is)<think>.*?</think>")
             val close = Regex("(?is)</?think>")
         }
+
+        fun b64(bytes: ByteArray): String = java.util.Base64.getEncoder().encodeToString(bytes)
     }
 }

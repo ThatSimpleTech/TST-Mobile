@@ -57,7 +57,7 @@ class NodeExecutor(
         fun open(id: String): ExecResult
     }
 
-    /** `screen ask` goes to a vision brain (M6). Absent until then: the executor says so honestly. */
+    /** `screen ask` sends a JPEG of the display to the active brain (M6). */
     interface ScreenAsk {
         suspend fun ask(question: String): ExecResult
     }
