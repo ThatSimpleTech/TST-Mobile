@@ -1,0 +1,117 @@
+# Conformance cases for policy.yaml. Every enforcer must produce exactly these tiers and
+# rule ids. Add a case for every rule you add, and one for every bug you fix.
+#
+# Request fields: verb (grammar verb key), app (package the screen belongs to), goal_apps,
+# keyguard, secure, open_label, target: { role, label, id, password }.
+cases:
+  - name: tap Send in WhatsApp is Tier 2 by resource id
+    request: { verb: tap, app: com.whatsapp, goal_apps: [com.whatsapp], target: { role: btn, label: "", id: "com.whatsapp:id/send" } }
+    expect: { tier: every, rule: sensitive-control }
+  - name: tap Enviar is Tier 2 by label, Spanish
+    request: { verb: tap, app: com.whatsapp, goal_apps: [com.whatsapp], target: { role: btn, label: Enviar } }
+    expect: { tier: every, rule: sensitive-control }
+  - name: accent-insensitive label match
+    request: { verb: tap, app: com.google.android.dialer, goal_apps: [com.google.android.dialer], target: { role: btn, label: "LLAMAR ahora" } }
+    expect: { tier: every, rule: sensitive-control }
+  - name: word boundary, "Sender name" is not "send"
+    request: { verb: tap, app: com.google.android.gm, goal_apps: [com.google.android.gm], target: { role: btn, label: Sender name } }
+    expect: { tier: once, rule: in-app-control }
+  - name: typing into a normal field is once per task
+    request: { verb: type, app: com.whatsapp, goal_apps: [com.whatsapp], target: { role: edit, label: Type a message } }
+    expect: { tier: once, rule: in-app-control }
+  - name: typing into a password field is refused
+    request: { verb: type, app: com.whatsapp, goal_apps: [com.whatsapp], target: { role: edit, label: Password, password: true } }
+    expect: { tier: refused, rule: password-field }
+  - name: clearing a password field is refused
+    request: { verb: clear, app: com.whatsapp, goal_apps: [com.whatsapp], target: { role: edit, label: Password, password: true } }
+    expect: { tier: refused, rule: password-field }
+  - name: scroll is silent
+    request: { verb: scroll, app: com.whatsapp, goal_apps: [com.whatsapp], target: { role: list, label: "" } }
+    expect: { tier: silent, rule: read-only }
+  - name: back is silent
+    request: { verb: back, app: com.whatsapp, goal_apps: [com.whatsapp] }
+    expect: { tier: silent, rule: read-only }
+  - name: wait is silent even on the keyguard
+    request: { verb: wait, app: com.android.systemui, goal_apps: [com.whatsapp], keyguard: true }
+    expect: { tier: silent, rule: read-only }
+  - name: ask is silent on the keyguard (answers are allowed)
+    request: { verb: ask, app: com.android.systemui, goal_apps: [com.whatsapp], keyguard: true }
+    expect: { tier: silent, rule: read-only }
+  - name: tap on the keyguard is refused
+    request: { verb: tap, app: com.android.systemui, goal_apps: [com.whatsapp], keyguard: true, target: { role: btn, label: Unlock } }
+    expect: { tier: refused, rule: keyguard-locked }
+  - name: scroll on the keyguard is refused
+    request: { verb: scroll, app: com.android.systemui, goal_apps: [com.whatsapp], keyguard: true, target: { role: list, label: "" } }
+    expect: { tier: refused, rule: keyguard-locked }
+  - name: secure screen refuses actions
+    request: { verb: tap, app: com.whatsapp, goal_apps: [com.whatsapp], secure: true, target: { role: btn, label: Ok } }
+    expect: { tier: refused, rule: secure-screen }
+  - name: secure screen still allows done
+    request: { verb: done, app: com.whatsapp, goal_apps: [com.whatsapp], secure: true }
+    expect: { tier: silent, rule: read-only }
+  - name: open an allowlisted app by label is silent
+    request: { verb: open, app: com.android.launcher3, goal_apps: [com.spotify.music], open_label: Spotify }
+    expect: { tier: silent, rule: open-allowlisted }
+  - name: open by alias, any case
+    request: { verb: open, app: com.android.launcher3, goal_apps: [com.spotify.music], open_label: "MÚSICA" }
+    expect: { tier: silent, rule: open-allowlisted }
+  - name: open an unknown app is refused
+    request: { verb: open, app: com.android.launcher3, goal_apps: [com.whatsapp], open_label: Terminal }
+    expect: { tier: refused, rule: open-not-allowlisted }
+  - name: open an allowlisted app outside the goal set asks every time
+    request: { verb: open, app: com.android.launcher3, goal_apps: [com.whatsapp], open_label: Gmail }
+    expect: { tier: every, rule: outside-goal-apps }
+  - name: acting in a non-allowlisted app is refused
+    request: { verb: tap, app: com.bank.app, goal_apps: [com.bank.app], target: { role: btn, label: Ok } }
+    expect: { tier: refused, rule: app-not-allowlisted }
+  - name: acting outside the goal app set asks every time
+    request: { verb: tap, app: com.google.android.gm, goal_apps: [com.whatsapp], target: { role: btn, label: Archive } }
+    expect: { tier: every, rule: outside-goal-apps }
+  - name: notification reply is every time
+    request: { verb: notif_reply, app: com.whatsapp, goal_apps: [com.whatsapp] }
+    expect: { tier: every, rule: notif-reply }
+  - name: a reply to a notification from an app outside the goal set asks as an outside app
+    request: { verb: notif_reply, app: com.google.android.gm, goal_apps: [com.whatsapp] }
+    expect: { tier: every, rule: outside-goal-apps }
+  - name: a notification whose poster is unknown cannot be opened
+    request: { verb: notif_open, app: "", goal_apps: [com.whatsapp] }
+    expect: { tier: refused, rule: app-not-allowlisted }
+  - name: a notification from a non-allowlisted app cannot be opened even in the goal set
+    request: { verb: notif_open, app: com.bank.app, goal_apps: [com.bank.app] }
+    expect: { tier: refused, rule: app-not-allowlisted }
+  - name: notification list is silent
+    request: { verb: notif_list, app: com.whatsapp, goal_apps: [com.whatsapp] }
+    expect: { tier: silent, rule: read-only }
+  - name: notification open is once per task
+    request: { verb: notif_open, app: com.whatsapp, goal_apps: [com.whatsapp] }
+    expect: { tier: once, rule: notif-open }
+  - name: a toggle in Settings is a settings change
+    request: { verb: tap, app: com.android.settings, goal_apps: [com.android.settings], target: { role: switch, label: Wi-Fi } }
+    expect: { tier: every, rule: settings-change }
+  - name: scrolling Settings is still silent
+    request: { verb: scroll, app: com.android.settings, goal_apps: [com.android.settings], target: { role: list, label: "" } }
+    expect: { tier: silent, rule: read-only }
+  - name: screen ask is once per task
+    request: { verb: screen_ask, app: com.whatsapp, goal_apps: [com.whatsapp] }
+    expect: { tier: once, rule: screen-ask }
+  - name: swipe the screen in the goal app is once per task
+    request: { verb: swipe, app: com.spotify.music, goal_apps: [com.spotify.music] }
+    expect: { tier: once, rule: in-app-control }
+  - name: long-press a delete control is every time
+    request: { verb: long, app: com.google.android.apps.messaging, goal_apps: [com.google.android.apps.messaging], target: { role: btn, label: "", id: "com.google.android.apps.messaging:id/delete_button" } }
+    expect: { tier: every, rule: sensitive-control }
+  - name: home is silent from anywhere
+    request: { verb: home, app: com.bank.app, goal_apps: [com.whatsapp] }
+    expect: { tier: silent, rule: read-only }
+  - name: back is the way out of a non-allowlisted app
+    request: { verb: back, app: com.bank.app, goal_apps: [com.whatsapp] }
+    expect: { tier: silent, rule: read-only }
+  - name: screenshot of a non-allowlisted app is refused
+    request: { verb: screen_ask, app: com.bank.app, goal_apps: [com.whatsapp] }
+    expect: { tier: refused, rule: app-not-allowlisted }
+  - name: scrolling an app outside the goal set asks every time
+    request: { verb: scroll, app: com.google.android.gm, goal_apps: [com.whatsapp], target: { role: list, label: "" } }
+    expect: { tier: every, rule: outside-goal-apps }
+  - name: a permission dialog is outside the goal set
+    request: { verb: tap, app: com.google.android.permissioncontroller, goal_apps: [com.whatsapp], target: { role: btn, label: Allow } }
+    expect: { tier: refused, rule: app-not-allowlisted }

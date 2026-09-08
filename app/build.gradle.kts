@@ -4,7 +4,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // actions, kill switch tile, assistant role. Framework APIs only for now (no androidx), so
 // tools/androidcheck can type-check these sources against the framework jar without an SDK.
 plugins {
-    alias(libs.plugins.android.application)
+    // AGP comes from the root buildscript classpath (see the root build.gradle.kts), so no version here.
+    id("com.android.application")
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
 }
