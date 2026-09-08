@@ -18,8 +18,8 @@ android {
         applicationId = "com.thatsimpletech.assist"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 15
-        versionName = "0.0.15"
+        versionCode = 16
+        versionName = "0.0.16"
     }
 
     buildFeatures {

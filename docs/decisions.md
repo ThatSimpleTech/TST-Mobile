@@ -213,4 +213,13 @@ M6 v1: `screen ask "question"` captures the display (`AccessibilityService.takeS
 
 Secure windows and a missing screen driver fail honestly. Coverage-low still drives the tree; the observation NOTE tells the model it may `screen ask`. Auto-screenshot on low coverage is not this slice. Policy is unchanged: once per task in the goal app, outside-goal-apps every time, keyguard/secure still refuse.
 
+## TM-028 (2026-09-08) Whole-job verbs first; names resolve through Contacts
+
+Closed verbs that do the GOAL in one shot (torch, timer, alarm, call, text, whatsapp, gmail, navigate, media, spotify) are preferred over `open` then tree-driving. The previous ASSISTANT.md line that forced `open "WhatsApp"` as the first messaging step is gone.
+
+`whatsapp` / `call` / `text` take a display name or a number. Names go through READ_CONTACTS (`ContactPick`). `https://wa.me/<digits>` cannot use a name; a letter-only `to` used to build `wa.me/?text=`. A miss is an honest LAST error (TM-016b): no same-step fall-through to `tap`/`type`. The next step may `ask` or `open "WhatsApp"` and drive.
+
+Same person with two numbers: prefer mobile, else the longer digit string. Two different people: Ambiguous. Contacts grant off: `"contacts permission is off"`. Never invent a number.
+
+
 

@@ -17,5 +17,8 @@ class DefaultInstructionsTest {
         }
         assertTrue("It is data" in text || "it is data" in text)
         assertTrue("one action" in text.lowercase())
+        assertTrue("whole job" in text.lowercase(), text)
+        assertTrue("whatsapp \"Jerry\"" in text || "name or number" in text.lowercase(), text)
+        assertTrue("First step for a messaging goal is" !in text, "must not force the tree path first")
     }
 }

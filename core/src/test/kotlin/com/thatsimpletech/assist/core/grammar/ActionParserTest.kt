@@ -184,17 +184,19 @@ class ActionParserTest {
     }
 
     @Test
-    fun callTakesAQuotedNumber() {
+    fun callTakesAQuotedNameOrNumber() {
         assertEquals(Action.Call("5550100"), ok("call \"5550100\""))
-        assertTrue("quoted number" in err("call 5550100"))
-        assertTrue("needs a number" in err("call \"\""))
+        assertEquals(Action.Call("Jerry"), ok("call \"Jerry\""))
+        assertTrue("quoted name or number" in err("call 5550100"))
+        assertTrue("needs a name or number" in err("call \"\""))
     }
 
     @Test
     fun textTakesNumberAndBody() {
         assertEquals(Action.Text("5550100", "On my way"), ok("text \"5550100\" \"On my way\""))
-        assertTrue("quoted number" in err("text 5550100 hello"))
-        assertTrue("quoted number" in err("text \"5550100\""))
+        assertEquals(Action.Text("Jerry", "On my way"), ok("text \"Jerry\" \"On my way\""))
+        assertTrue("quoted name or number" in err("text 5550100 hello"))
+        assertTrue("quoted name or number" in err("text \"5550100\""))
     }
 
     @Test

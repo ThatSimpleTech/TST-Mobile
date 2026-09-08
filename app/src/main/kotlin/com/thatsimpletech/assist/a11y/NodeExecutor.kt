@@ -14,6 +14,7 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import com.thatsimpletech.assist.core.grammar.Action
 import com.thatsimpletech.assist.core.grammar.Direction
 import com.thatsimpletech.assist.core.grammar.SwipeTarget
+import com.thatsimpletech.assist.core.intent.ContactPick
 import com.thatsimpletech.assist.core.intent.EventTimes
 import com.thatsimpletech.assist.core.intent.PhoneIntents
 import com.thatsimpletech.assist.core.intent.SettingsIntents
@@ -25,7 +26,9 @@ import com.thatsimpletech.assist.core.observe.UiNode
 import com.thatsimpletech.assist.core.policy.PolicyPack
 import com.thatsimpletech.assist.core.policy.TextMatch
 import com.thatsimpletech.assist.device.DeviceControls
+import com.thatsimpletech.assist.intent.DeviceContacts
 import com.thatsimpletech.assist.intent.IntentExecutor
+import com.thatsimpletech.assist.intent.RecipientResolver
 import com.thatsimpletech.assist.media.SessionMedia
 import com.thatsimpletech.assist.partner.PartnerRouter
 import kotlinx.coroutines.delay
@@ -49,6 +52,7 @@ class NodeExecutor(
     private val walker: TreeWalker? = null,
     private val vision: ScreenAsk? = null,
 ) : Executor {
+    private val recipients = RecipientResolver(DeviceContacts(context))
 
     /** Notification verbs are served by the listener service; see notif/AssistNotificationListener. */
     interface NotificationActions {
@@ -88,8 +92,8 @@ class NodeExecutor(
         is Action.Wait -> { delay(action.seconds * 1000L); ExecResult.OK }
         // Terminal and paging verbs never reach the executor; the loop handles them.
         is Action.Done, is Action.Ask, Action.More -> ExecResult.error("not an executable verb")
-        is Action.Call -> intents.start(PhoneIntents.dial(action.number))
-        is Action.Text -> intents.start(PhoneIntents.smsDraft(action.number, action.body))
+        is Action.Call -> toNumber(action.number) { intents.start(PhoneIntents.dial(it)) }
+        is Action.Text -> toNumber(action.number) { intents.start(PhoneIntents.smsDraft(it, action.body)) }
         is Action.Alarm -> intents.start(PhoneIntents.setAlarm(action.hour, action.minute, action.label))
         is Action.Timer -> intents.start(PhoneIntents.setTimer(action.seconds, action.label))
         is Action.Event -> startEvent(action)
@@ -103,6 +107,11 @@ class NodeExecutor(
         is Action.Media -> media.execute(action.command)
         is Action.WhatsApp, is Action.Spotify, is Action.Gmail -> partners.execute(action)
         Action.Qs -> qs()
+    }
+
+    private fun toNumber(raw: String, start: (String) -> ExecResult): ExecResult {
+        val d = recipients.resolve(raw)
+        return if (d is ContactPick.Decision.Ready) start(d.digits) else RecipientResolver.error(d, raw)
     }
 
     /** Compact controls (icons, Send) are tapped at their pixel center; slabs use ACTION_CLICK. */

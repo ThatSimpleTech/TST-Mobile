@@ -12,11 +12,12 @@ The plan is [`docs/tst-assist-android.md`](docs/tst-assist-android.md). What the
 does today, checked against TST Desk's source, is [`docs/reality-check.md`](docs/reality-check.md).
 Decisions are in [`docs/decisions.md`](docs/decisions.md).
 
-**Status:** pre-alpha, private use. Head of work is `grok/m1-closeout` (TM-010–027).
+**Status:** pre-alpha, private use. Head of work is `grok/m1-closeout` (TM-010–028).
 The phone app is **EZER**. Settings default to the home box; OpenRouter is a fallback.
 Pixel path (type, spatial, Auto, open-any-app) plus M2 (intents, meter chip, spend-cap
 pause, family host block, end-state validator, model-profile suite), M3 (share audit CSV),
-M4 v1 (on-device Talk), and M6 v1 (`screen ask` JPEG to the brain).
+M4 v1 (on-device Talk), M6 v1 (`screen ask` JPEG to the brain), and TM-028 (whole-job
+verbs first; Jerry resolves through Contacts).
 
 ## How it drives the phone
 

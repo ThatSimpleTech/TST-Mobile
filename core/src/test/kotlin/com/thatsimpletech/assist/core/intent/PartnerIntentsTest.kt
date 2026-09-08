@@ -15,6 +15,12 @@ class PartnerIntentsTest {
     }
 
     @Test
+    fun letterOnlyRecipientStripsToEmptyDigits() {
+        val spec = PartnerIntents.whatsapp("Jerry", "Hi")
+        assertEquals("https://wa.me/?text=Hi", spec.uri)
+    }
+
+    @Test
     fun spotifySearchUri() {
         val spec = PartnerIntents.spotifyPlay("pink floyd")
         assertEquals(PhoneIntents.ACTION_VIEW, spec.action)

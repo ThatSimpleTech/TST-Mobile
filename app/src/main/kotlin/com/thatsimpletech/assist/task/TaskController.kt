@@ -19,8 +19,10 @@ import com.thatsimpletech.assist.core.meter.MeterText
 import com.thatsimpletech.assist.core.observe.ObservationBuilder
 import com.thatsimpletech.assist.core.policy.PolicyEnforcer
 import com.thatsimpletech.assist.device.DeviceControls
+import com.thatsimpletech.assist.intent.DeviceContacts
 import com.thatsimpletech.assist.intent.IntentExecutor
 import com.thatsimpletech.assist.intent.PermissionGate
+import com.thatsimpletech.assist.intent.RecipientResolver
 import com.thatsimpletech.assist.kill.GlobalKillSwitch
 import com.thatsimpletech.assist.media.SessionMedia
 import com.thatsimpletech.assist.notif.AssistNotificationListener
@@ -56,7 +58,8 @@ object TaskController {
             val enforcer = PolicyEnforcer(pack)
             val intents = IntentExecutor(appContext)
             val devices = DeviceControls(appContext, PermissionGate(appContext))
-            val partners = PartnerRouter(AppFunctionExecutor(appContext), intents)
+            val recipients = RecipientResolver(DeviceContacts(appContext))
+            val partners = PartnerRouter(AppFunctionExecutor(appContext), intents, recipients)
             val media = SessionMedia(appContext)
             val vision = if (service != null && choice.client != null && choice.tier != null) {
                 ScreenAskBrain(

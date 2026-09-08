@@ -29,7 +29,7 @@ object PartnerIntents {
     const val SPOTIFY_NEXT = "com.spotify.mobile.android.ui.widget.NEXT"
     const val SPOTIFY_PREV = "com.spotify.mobile.android.ui.widget.PREVIOUS"
 
-    /** Click-to-chat: `https://wa.me/<digits>?text=`. Non-digits in [to] are dropped. */
+    /** Click-to-chat: `https://wa.me/<digits>?text=`. Non-digits in [to] are dropped; resolve names first (TM-028). */
     fun whatsapp(to: String, body: String): IntentSpec {
         val digits = to.filter { it.isDigit() }
         val uri = "https://wa.me/$digits?text=${encodeUri(body)}"

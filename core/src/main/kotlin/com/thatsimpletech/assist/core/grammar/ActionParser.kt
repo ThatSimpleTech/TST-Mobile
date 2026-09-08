@@ -179,16 +179,16 @@ class ActionParser(val codec: HintCodec = HintCodec.Numeric) {
     }
 
     private fun parseCall(args: List<Token>): ParseResult {
-        if (args.size != 1 || !args[0].quoted) return ParseResult.Error("call takes a quoted number, like `call \"5550100\"`")
-        if (args[0].text.isBlank()) return ParseResult.Error("call needs a number")
+        if (args.size != 1 || !args[0].quoted) return ParseResult.Error("call takes a quoted name or number, like `call \"Jerry\"`")
+        if (args[0].text.isBlank()) return ParseResult.Error("call needs a name or number")
         return ParseResult.Ok(Action.Call(args[0].text))
     }
 
     private fun parseText(args: List<Token>): ParseResult {
         if (args.size != 2 || !args[0].quoted || !args[1].quoted) {
-            return ParseResult.Error("text takes a quoted number and quoted body, like `text \"5550100\" \"On my way\"`")
+            return ParseResult.Error("text takes a quoted name or number and quoted body, like `text \"Jerry\" \"On my way\"`")
         }
-        if (args[0].text.isBlank()) return ParseResult.Error("text needs a number")
+        if (args[0].text.isBlank()) return ParseResult.Error("text needs a name or number")
         return ParseResult.Ok(Action.Text(args[0].text, args[1].text))
     }
 

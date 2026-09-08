@@ -165,7 +165,7 @@ If desktop tstd has moved since these were pasted, the phone is a snapshot, not 
 
 M2, as this repo can claim it on `grok/m2`:
 
-- Closed verbs for calls, texts, alarms, timers, calendar, contacts, navigation, flashlight, DND, brightness, volume, media, WhatsApp/Spotify/Gmail, and `qs`: **written**. Partner miss is an honest error, not tree-driving.
+- Closed verbs for calls, texts, alarms, timers, calendar, contacts, navigation, flashlight, DND, brightness, volume, media, WhatsApp/Spotify/Gmail, and `qs`: **written**. Partner miss is an honest error, not tree-driving. Names on `whatsapp`/`call`/`text` resolve through Contacts (TM-028).
 - Spend cap → `Outcome.Paused`; day chip hydrates from `audit.model_calls`; planner-emitted goal apps; family-mode host block; end-state validator; model profiles + offline suite; `app/` socket scan: **written**.
 - Live three-brain suite: **opt-in**, not CI. Do not claim it ran.
 - Pixel 7 Pro column: **unverified**. CI green is not M2 done for P2/P4/direct APIs.
@@ -178,7 +178,7 @@ M1, as this repo can claim it today:
 - On a Pixel: **never**.
 - P3 keyguard matrix, P7 banking, P8 FLAG_SECURE, C2 gestures on device, C3 twenty multi-step tasks, C7 login screen: **unverified**. Those are the M1 *verify* column, and they need the 7 Pro.
 
-M2 code is on `grok/m2` (intents and direct APIs, live meter chip with day hydration, spend-cap pause, planner-emitted goal apps, family host block, end-state validator, model-profile suite, app socket scan). Pixel 7 Pro verify is still **unverified**. The three-brain suite in CI is the **offline fixtures**; live calls are opt-in (`-Dassist.liveSuite=1`) and are not claimed as having run. Home as tstd, Device brain, sherpa-onnx voice, memory: **not this branch**. `screen ask` (M6 v1) posts a JPEG to the active brain (TM-027). Do not invent plan §§10–17.
+M2 code is on `grok/m2` (intents and direct APIs, live meter chip with day hydration, spend-cap pause, planner-emitted goal apps, family host block, end-state validator, model-profile suite, app socket scan). Pixel 7 Pro verify is still **unverified**. The three-brain suite in CI is the **offline fixtures**; live calls are opt-in (`-Dassist.liveSuite=1`) and are not claimed as having run. Home as tstd, Device brain, sherpa-onnx voice, memory: **not this branch**. `screen ask` (M6 v1) posts a JPEG to the active brain (TM-027). Whole-job verbs first; names resolve through Contacts (TM-028). Do not invent plan §§10–17.
 
 ---
 
