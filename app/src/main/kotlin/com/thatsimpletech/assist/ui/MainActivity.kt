@@ -36,6 +36,7 @@ import com.thatsimpletech.assist.kill.GlobalKillSwitch
 import com.thatsimpletech.assist.notif.AssistNotificationListener
 import com.thatsimpletech.assist.task.LastRun
 import com.thatsimpletech.assist.task.TaskForegroundService
+import java.io.File
 
 /**
  * Settings surface: grants, EZER home (default), OpenRouter/LAN fallbacks, Auto, spend cap,
@@ -198,6 +199,12 @@ class MainActivity : Activity() {
             ModelProfiles.upsert(Graph.profilesFile, report.profile)
             status.append("\n${report.summary}")
         })
+        col.addView(button("Share what it did (CSV)") {
+            shareCsv("ezer-actions.csv", Graph.audit.exportActionsCsv())
+        })
+        col.addView(button("Share spend (CSV)") {
+            shareCsv("ezer-spend.csv", Graph.audit.exportModelCallsCsv())
+        })
 
         setContentView(ScrollView(this).apply { addView(col) })
 
@@ -335,6 +342,28 @@ class MainActivity : Activity() {
             append(if (GlobalKillSwitch.killed) "■ STOPPED by kill switch\n" else "● armed\n")
             val last = LastRun.load(this@MainActivity)
             if (last.isNotBlank()) append("\nLast run: $last\n")
+        }
+    }
+
+    private fun shareCsv(fileName: String, csv: String) {
+        val rows = csv.split("\r\n").count { it.isNotEmpty() } - 1
+        val dir = getExternalFilesDir(null) ?: filesDir
+        val file = File(dir, fileName)
+        file.writeText(csv)
+        try {
+            startActivity(
+                Intent.createChooser(
+                    Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, fileName)
+                        putExtra(Intent.EXTRA_TEXT, csv)
+                    },
+                    fileName,
+                ),
+            )
+            status.append("\n$fileName: $rows rows — pick Drive, Gmail, or Files")
+        } catch (e: Exception) {
+            status.append("\nsaved $fileName ($rows rows); no share app: ${e.message}")
         }
     }
 
