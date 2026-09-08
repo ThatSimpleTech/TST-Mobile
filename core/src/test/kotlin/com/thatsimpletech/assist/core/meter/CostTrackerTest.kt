@@ -198,6 +198,27 @@ class CostTrackerTest {
     }
 
     @Test
+    fun seedDayCostSurvivesANewTracker() {
+        val clock = FakeClock(1_800_000_000_000L)
+        val prior = clock.tracker()
+        prior.beginTurn()
+        prior.record(TierName.BRAIN, "m", Usage(1000, 0, 500), brain) // 0.009800
+        assertClose(0.009800, prior.dayCost())
+
+        val next = clock.tracker()
+        next.seedDayCost(prior.dayCost())
+        assertClose(0.009800, next.dayCost())
+        assertEquals(0.0, next.sessionCost())
+        assertClose(0.009800, next.snapshot().dayCost)
+
+        next.beginTurn()
+        next.record(TierName.BRAIN, "m", Usage(1000, 0, 500), brain)
+        assertClose(0.019600, next.dayCost())
+        assertClose(0.009800, next.sessionCost())
+        assertClose(0.019600, next.snapshot().dayCost)
+    }
+
+    @Test
     fun listenersSeeEveryCallIncludingClassifierOnes() {
         val t = CostTracker()
         val seen = ArrayList<CallRecord>()

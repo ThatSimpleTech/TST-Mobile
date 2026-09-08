@@ -193,6 +193,20 @@ class AuditStore(
                 SessionRow(r.string("session_id"), r.string("workspace_path"), r.double("started_at"), r.string("device_id"), r.string("planner_mode"))
             }
 
+    /**
+     * Non-classifier model-call spend whose local calendar day matches [nowEpochSeconds]
+     * (TM-025). Classifier rows stay off the day meter, same as [com.thatsimpletech.assist.core.meter.CostTracker.sessionCost].
+     */
+    fun daySpend(nowEpochSeconds: Double): Double {
+        val row = executor.query(
+            "SELECT COALESCE(SUM(cost), 0) AS spend FROM model_calls" +
+                " WHERE is_classifier = 0" +
+                " AND date(datetime(ts, 'unixepoch', 'localtime')) = date(datetime(?, 'unixepoch', 'localtime'))",
+            listOf(nowEpochSeconds),
+        ).first()
+        return (row.getValue("spend") as Number).toDouble()
+    }
+
     fun actionsFor(sessionId: String): List<ActionRow> =
         executor.query("SELECT ${ACTION_EXPORT_COLUMNS.joinToString(", ")} FROM actions WHERE session_id = ? ORDER BY step, id", listOf(sessionId))
             .map { r ->

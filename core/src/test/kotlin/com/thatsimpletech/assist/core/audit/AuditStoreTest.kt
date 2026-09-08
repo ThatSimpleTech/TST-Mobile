@@ -143,6 +143,20 @@ class AuditStoreTest {
     }
 
     @Test
+    fun daySpendSumsNonClassifierCallsForLocalToday() {
+        assertEquals(0.0, store.daySpend(now), 1e-9)
+        store.startSession("s1", "pixel7", "cloud", "goal")
+        val today = now
+        val yesterday = now - 86_400.0
+        store.recordModelCall("s1", null, "brain", "m", 100, 0, 10, 0.40, ts = today)
+        store.recordModelCall("s1", null, "brain", "m", 100, 0, 10, 0.10, ts = today)
+        store.recordModelCall("s1", null, "worker", "m-small", 100, 0, 10, 0.99, isClassifier = true, ts = today)
+        store.recordModelCall("s1", null, "brain", "m", 100, 0, 10, 5.00, ts = yesterday)
+        assertEquals(0.50, store.daySpend(today), 1e-9)
+        assertEquals(5.00, store.daySpend(yesterday), 1e-9)
+    }
+
+    @Test
     fun costsViewStillAggregatesOnThePhone() {
         store.startSession("s1", "pixel7", "cloud", "goal")
         store.recordModelCall("s1", null, "brain", "m", 1000, 200, 100, 0.05)
@@ -313,7 +327,7 @@ class AuditStoreTest {
         assertEquals(
             setOf(
                 "migrate", "getSchemaVersion", "startSession", "recordTurn", "recordToolCall", "recordAction",
-                "recordApproval", "recordModelCall", "session", "actionsFor",
+                "recordApproval", "recordModelCall", "session", "actionsFor", "daySpend",
                 "exportModelCallsJsonl", "exportModelCallsCsv", "exportActionsJsonl", "exportActionsCsv",
             ),
             public,

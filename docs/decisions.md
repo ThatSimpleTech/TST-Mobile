@@ -163,3 +163,7 @@ After `done`, a validator compares the last observation to the goal. Determinist
 
 A failed validator is not `Outcome.Done`. Q6 maps fail to `Outcome.Ask` with the reason so the person can confirm or re-run. This overrides D4 (`Outcome.Stopped`). A null validator on the runner keeps today's `Outcome.Done`.
 
+## TM-025 (2026-09-08) Day meter hydrates from audit.model_calls
+
+A new `CostTracker` per `TaskController.run` used to make `dayCost == sessionCost`. Day spend is display-only (Q7: the pause cap is session). Before the first `record` of a session, `CostTracker.seedDayCost` takes `AuditStore.daySpend`: the sum of non-classifier `model_calls` whose local calendar day matches now. This session is not in the query yet, so it is not double-counted. Overlay and the persistent task notification both show `MeterText.chip` (turn, session, day, by tier, remaining). On `Outcome.Paused` the last chip includes `PAUSED`. The gold tap highlight stays on `OverlayCard`; the meter is a separate untouchable overlay.
+
