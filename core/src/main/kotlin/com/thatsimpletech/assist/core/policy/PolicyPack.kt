@@ -141,9 +141,10 @@ object VerbKey {
     /**
      * Verbs whose effect lands inside one app: these are what the allowlist and the intent
      * lock judge. Global navigation (back, home, recents) is the way out of any app and is
-     * never app-scoped; notification verbs have their own rules.
+     * never app-scoped. Notification open and reply land in the app that posted the
+     * notification, so they are judged against that app.
      */
-    val APP_SCOPED: Set<String> = setOf(TAP, LONG, TYPE, CLEAR, SCROLL, SWIPE, DRAG, OPEN, SCREEN_ASK)
+    val APP_SCOPED: Set<String> = setOf(TAP, LONG, TYPE, CLEAR, SCROLL, SWIPE, DRAG, OPEN, SCREEN_ASK, NOTIF_OPEN, NOTIF_REPLY)
 }
 
 /** Case- and accent-insensitive text matching for labels and aliases. */

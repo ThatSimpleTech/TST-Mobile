@@ -70,6 +70,15 @@ cases:
   - name: notification reply is every time
     request: { verb: notif_reply, app: com.whatsapp, goal_apps: [com.whatsapp] }
     expect: { tier: every, rule: notif-reply }
+  - name: a reply to a notification from an app outside the goal set asks as an outside app
+    request: { verb: notif_reply, app: com.google.android.gm, goal_apps: [com.whatsapp] }
+    expect: { tier: every, rule: outside-goal-apps }
+  - name: a notification whose poster is unknown cannot be opened
+    request: { verb: notif_open, app: "", goal_apps: [com.whatsapp] }
+    expect: { tier: refused, rule: app-not-allowlisted }
+  - name: a notification from a non-allowlisted app cannot be opened even in the goal set
+    request: { verb: notif_open, app: com.bank.app, goal_apps: [com.bank.app] }
+    expect: { tier: refused, rule: app-not-allowlisted }
   - name: notification list is silent
     request: { verb: notif_list, app: com.whatsapp, goal_apps: [com.whatsapp] }
     expect: { tier: silent, rule: read-only }

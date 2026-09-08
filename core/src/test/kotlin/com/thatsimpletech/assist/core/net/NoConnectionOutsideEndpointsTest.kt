@@ -17,15 +17,23 @@ class NoConnectionOutsideEndpointsTest {
         return candidates.firstOrNull { it.isDirectory } ?: fail("core main sources not found from ${File(".").absolutePath}")
     }
 
+    /** The Android app's sources, which must not open a door of their own either. */
+    private fun appSources(): File {
+        val candidates = listOf(File("../app/src/main/kotlin"), File("app/src/main/kotlin"))
+        return candidates.firstOrNull { it.isDirectory } ?: fail("app sources not found from ${File(".").absolutePath}")
+    }
+
+    private fun offendersIn(root: File, exclude: File?): List<String> = root.walkTopDown()
+        .filter { it.isFile && it.extension == "kt" && (exclude == null || !it.absoluteFile.startsWith(exclude.absoluteFile)) }
+        .flatMap { f -> val text = f.readText(); markers.filter { it in text }.map { "${f.relativeTo(root)}: $it" } }
+        .toList()
+
     @Test
     fun noConnectionOutsideEndpoints() {
         val root = mainSources()
         val netDir = File(root, "com/thatsimpletech/assist/core/net")
         assertTrue(netDir.isDirectory, "net package missing")
-        val offenders = root.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" && !it.absoluteFile.startsWith(netDir.absoluteFile) }
-            .flatMap { f -> val text = f.readText(); markers.filter { it in text }.map { "${f.relativeTo(root)}: $it" } }
-            .toList()
+        val offenders = offendersIn(root, netDir) + offendersIn(appSources(), null).map { "app: $it" }
         assertTrue(offenders.isEmpty(), "connections must go through core.net.Endpoints:\n" + offenders.joinToString("\n"))
     }
 

@@ -58,8 +58,12 @@ data class Decision(
  */
 class PolicyEnforcer(val pack: PolicyPack) {
 
-    fun decide(action: Action, screenApp: String, target: UiNode?, keyguard: Boolean, secure: Boolean, task: TaskContext): Decision {
-        val f = facts(action, screenApp, target, keyguard, secure, task)
+    fun decide(
+        action: Action, screenApp: String, target: UiNode?, keyguard: Boolean, secure: Boolean, task: TaskContext,
+        /** The app the action really lands in when it is not the screen's (a notification's poster). */
+        appOverride: String? = null,
+    ): Decision {
+        val f = facts(action, screenApp, target, keyguard, secure, task, appOverride)
         val (tier, rule, reason) = classify(f)
         return Decision(tier, rule, reason, gate(tier, task), f)
     }
@@ -79,11 +83,14 @@ class PolicyEnforcer(val pack: PolicyPack) {
         Tier.REFUSED -> Gate.REFUSE
     }
 
-    fun facts(action: Action, screenApp: String, target: UiNode?, keyguard: Boolean, secure: Boolean, task: TaskContext): ActionFacts {
+    fun facts(
+        action: Action, screenApp: String, target: UiNode?, keyguard: Boolean, secure: Boolean, task: TaskContext,
+        appOverride: String? = null,
+    ): ActionFacts {
         val verb = verbKey(action)
         val openTarget = (action as? Action.Open)?.let { pack.resolveOpen(it.app) }
-        // The app an action lands in: the launched app for `open`, the screen's app otherwise.
-        val app = openTarget?.pkg ?: screenApp
+        // The app an action lands in: the notification's poster, the launched app for `open`, else the screen's app.
+        val app = appOverride ?: openTarget?.pkg ?: screenApp
         val goal = task.goalApps + task.confirmedApps
         val appEntry = pack.app(app)
         return ActionFacts(

@@ -202,6 +202,8 @@ CREATE INDEX idx_approvals_session ON approvals(session_id, requested_at);
         // per connection. Both are best effort: an executor that refuses pragmas still migrates.
         runCatching { executor.query("PRAGMA journal_mode=WAL") }
         runCatching { executor.exec("PRAGMA foreign_keys=ON") }
+        // REPLACE conflict resolution deletes rows without firing DELETE triggers unless this is on.
+        runCatching { executor.exec("PRAGMA recursive_triggers=ON") }
         val current = version(executor)
         var applied = current
         for ((index, sql) in migrations.withIndex()) {
@@ -218,6 +220,7 @@ CREATE INDEX idx_approvals_session ON approvals(session_id, requested_at);
 
     /** Re-assert the triggers on a migrated database; see [APPEND_ONLY_TRIGGERS] for why. */
     fun ensureAppendOnly(executor: SqlExecutor) {
+        runCatching { executor.exec("PRAGMA recursive_triggers=ON") }
         executor.transaction {
             for (statement in SqlScript.split(APPEND_ONLY_TRIGGERS)) executor.exec(statement)
         }

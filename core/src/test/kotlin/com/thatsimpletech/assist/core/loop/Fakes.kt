@@ -49,7 +49,7 @@ class ScriptedObserver(private val screens: List<Screen>) : Observer {
         fingerprintCalls++
         fingerprintOverrides.removeFirstOrNull()?.let { return it }
         val s = current ?: error("fingerprint() before observe()")
-        return Fingerprint.of(s.app, s.activity, NodeFilter.select(s).map { it.identity })
+        return Fingerprint.ofNodes(s.app, s.activity, NodeFilter.select(s))
     }
 }
 

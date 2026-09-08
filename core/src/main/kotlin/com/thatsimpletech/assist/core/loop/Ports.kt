@@ -45,6 +45,15 @@ interface ApprovalSurface {
     suspend fun requestCard(action: Action, plainWords: String, target: UiNode?, reason: String): Boolean
 }
 
+/**
+ * Who posted a notification. Notification verbs are judged by the posting app, not the app on
+ * screen, so the allowlist and the intent lock apply to them too; an id nobody can place is
+ * treated as an app that is not allowlisted.
+ */
+interface NotificationDirectory {
+    fun packageOf(id: String): String?
+}
+
 /** The kill switch: persistent-notification action and Quick Settings tile. Polled before every step. */
 interface KillSwitch {
     val killed: Boolean

@@ -7,7 +7,8 @@
 # grants. Anything no rule matches gets `default`.
 #
 # Facts a rule can test: verb, acts (changes anything on the device), app_scoped (lands
-# inside one app: tap/long/type/clear/scroll/swipe/drag/open/screen_ask), keyguard, secure,
+# inside one app: tap/long/type/clear/scroll/swipe/drag/open/screen_ask/notif_open/notif_reply,
+# the last two judged by the app that posted the notification), keyguard, secure,
 # target_password, target_sensitive, app_allowlisted, open_allowlisted, app_in_goal,
 # app_settings.
 version: 1

@@ -39,10 +39,14 @@ data class TierConfig(
     /** True when every price is zero: the meter must read exactly $0.00 on this tier. */
     val isFree: Boolean get() = inputPrice == 0.0 && outputPrice == 0.0 && cacheReadPrice == 0.0
 
-    /** The credential id this tier sends with, or null for a keyless loopback tier (desktop `resolve_credential_id`). */
+    /**
+     * The credential id this tier sends with. Loopback and on-device tiers send none (desktop
+     * `resolve_credential_id`); a tailnet tier sends none either unless it is bound explicitly,
+     * because the implicit key is the OpenRouter key and a home box must never receive it.
+     */
     val credentialId: String?
         get() = credential?.trim()?.ifEmpty { null }
-            ?: if (kind == EndpointKind.ON_BOX || kind == EndpointKind.ON_DEVICE) null else AssistConfig.DEFAULT_CREDENTIAL
+            ?: if (kind == EndpointKind.REMOTE) AssistConfig.DEFAULT_CREDENTIAL else null
 
     fun validate(path: String): List<String> {
         val p = ArrayList<String>()
@@ -96,10 +100,25 @@ data class AssistConfig(
     fun tier(name: TierName): TierConfig = active.tier(name)
 
     /**
-     * The only hosts the app may open: the active preset's endpoints (plan §1, "no telemetry").
-     * The outbound-hosts test fails on any destination not in this set.
+     * The URL a call to this tier actually goes to (desktop `resolve_base_url`, TD-1718): a
+     * credential's own base_url wins; an `openrouter`-family credential without one inherits
+     * the shipped OpenRouter host, so a key named OpenRouter always leaves for OpenRouter and
+     * never for the tier's own host; otherwise the tier URL.
      */
-    val allowedHosts: Set<String> get() = active.hosts
+    fun resolveBaseUrl(tier: TierConfig): String {
+        val id = tier.credentialId ?: return tier.baseUrl
+        credentials[id]?.baseUrl?.takeIf { it.isNotBlank() }?.let { return it }
+        if (isOpenRouterFamily(id)) credentials[DEFAULT_CREDENTIAL]?.baseUrl?.takeIf { it.isNotBlank() }?.let { return it }
+        return tier.baseUrl
+    }
+
+    /**
+     * The only hosts the app may open: where the active preset's tiers really go (plan §1,
+     * "no telemetry"). The outbound-hosts test fails on any destination not in this set.
+     */
+    val allowedHosts: Set<String>
+        get() = active.tiers.values.map { resolveBaseUrl(it) }.filter { Endpoint.isNetwork(it) }
+            .mapNotNullTo(LinkedHashSet()) { Endpoint.host(it) }
 
     fun validate(): List<String> {
         val problems = ArrayList<String>()
@@ -112,6 +131,10 @@ data class AssistConfig(
                 problems += t.validate(path)
                 val cid = t.credential?.trim()?.ifEmpty { null }
                 if (cid != null && cid !in known) problems += "$path.credential '$cid' is not a declared credential"
+                val resolved = resolveBaseUrl(t)
+                if (t.credentialId != null && resolved.startsWith("http://", ignoreCase = true) && Endpoint.kind(resolved) == EndpointKind.REMOTE) {
+                    problems += "$path sends credential '${t.credentialId}' over plain http to a third party ($resolved); use https"
+                }
             }
         }
         if (spendCapUsd != null && spendCapUsd <= 0) problems += "spend_cap_usd must be > 0 when set (omit it for no cap)"
@@ -121,8 +144,13 @@ data class AssistConfig(
     companion object {
         const val DEFAULT_PRESET = "tst-default"
 
-        /** The desktop's implicit key: an off-box tier with no credential uses it. */
+        /** The desktop's implicit key: a third-party tier with no credential uses it. */
         const val DEFAULT_CREDENTIAL = "openrouter"
+
+        private val openRouterFamily = Regex("^openrouter(?:-\\d+)?$")
+
+        /** `openrouter`, `openrouter-2`, ... (desktop TD-1718). */
+        fun isOpenRouterFamily(id: String): Boolean = openRouterFamily.matches(id)
 
         private val yaml = Yaml(configuration = YamlConfiguration(strictMode = true))
 

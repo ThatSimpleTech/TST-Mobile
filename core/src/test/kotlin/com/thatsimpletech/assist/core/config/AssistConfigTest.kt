@@ -87,7 +87,7 @@ class AssistConfigTest {
     fun allowedHostsAreTheActivePresetsEndpointsOnly() {
         val cfg = AssistConfig.loadDefault()
         assertEquals(setOf("openrouter.ai"), cfg.allowedHosts)
-        assertEquals(setOf("home.tailnet.example"), cfg.copy(preset = "home").allowedHosts)
+        assertEquals(setOf("llm.your-tailnet.ts.net"), cfg.copy(preset = "home").allowedHosts)
         assertEquals(setOf("127.0.0.1"), cfg.copy(preset = "local").allowedHosts)
         assertEquals(emptySet(), cfg.copy(preset = "device").allowedHosts)
     }

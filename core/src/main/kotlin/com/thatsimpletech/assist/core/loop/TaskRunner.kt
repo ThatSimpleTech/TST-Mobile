@@ -38,6 +38,7 @@ class TaskRunner(
     private val listener: RunListener? = null,
     private val budget: StepBudget = StepBudget.of(enforcer.pack),
     private val loopRepeatLimit: Int = enforcer.pack.loopRepeatLimit,
+    private val notifications: NotificationDirectory? = null,
 ) {
     /** The kinds of model failure that end the run when they happen twice in a row. */
     private enum class Failure { PARSE, REFUSED, DENIED }
@@ -47,6 +48,7 @@ class TaskRunner(
         val tier1Verbs = tier1Verbs(enforcer.pack)
 
         var last: LastResult? = null
+        var notifListing: List<String>? = null
         var parseNote: String? = null
         var tier2Pending: Action? = null
         var lastAction: Action? = null
@@ -96,7 +98,10 @@ class TaskRunner(
                 append(ObservationFormatter.format(obs, Trailer(goal, step, budget.limit, last, tier2Pending)))
                 // A parse error has no action to put in LAST, so the reason rides the STEP line by itself.
                 parseNote?.let { append("   LAST: error ").append(ObservationFormatter.clean(it, 120)) }
+                // The listing from `notif list` is its own data block, shown once, one line per notification.
+                notifListing?.let { append('\n').append(ObservationFormatter.formatBlock("NOTIF", it)) }
             }
+            notifListing = null
             val reply = planner.next(prompt)
             val parsed = parser.parse(reply, obs.hints)
 
@@ -139,7 +144,13 @@ class TaskRunner(
 
             val target = action.hints.firstOrNull()?.let { obs.node(it) }
             val task = TaskContext(goalApps, confirmedApps.toSet(), taskGranted, tier2ThisTurn)
-            val decision = enforcer.decide(action, obs.app, target, obs.keyguard, obs.secure, task)
+            // Notification verbs are judged by the posting app; unknown means not allowlisted.
+            val appOverride = when (action) {
+                is Action.NotifReply -> notifications?.packageOf(action.id) ?: ""
+                is Action.NotifOpen -> notifications?.packageOf(action.id) ?: ""
+                else -> null
+            }
+            val decision = enforcer.decide(action, obs.app, target, obs.keyguard, obs.secure, task, appOverride)
             var countsAsTier2 = false
 
             when (decision.gate) {
@@ -202,7 +213,14 @@ class TaskRunner(
             listener?.onStep(step, obs, reply, parsed, decision, result)
             if (countsAsTier2) tier2ThisTurn++
             clearFailures()
-            last = LastResult(action, result.ok, result.detail)
+            if (action == Action.NotifList && result.ok) {
+                // Notification text is data for the model, not a line in the trailer or the audit.
+                val lines = result.detail.lines().filter { it.isNotBlank() }
+                notifListing = lines
+                last = LastResult(action, true, "${lines.size} notifications listed")
+            } else {
+                last = LastResult(action, result.ok, result.detail)
+            }
             lastAction = action
         }
     }

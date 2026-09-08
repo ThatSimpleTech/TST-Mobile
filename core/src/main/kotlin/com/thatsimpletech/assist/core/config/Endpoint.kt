@@ -44,9 +44,20 @@ object Endpoint {
         return literal(host)?.isLoopbackAddress == true
     }
 
-    /** CGNAT 100.64.0.0/10 or the Tailscale ULA fd7a:115c:a1e0::/48. */
+    /**
+     * A Tailscale MagicDNS name: `<machine>.<tailnet>.ts.net`. Names are never resolved here;
+     * `net.TailnetDns` is what pins such a name to a tailnet address at connection time.
+     */
+    fun isMagicDns(host: String): Boolean {
+        val h = host.lowercase().trimEnd('.')
+        return h.endsWith(".ts.net") && h.removeSuffix(".ts.net").isNotEmpty() && !h.startsWith(".")
+    }
+
+    /** CGNAT 100.64.0.0/10, the Tailscale ULA fd7a:115c:a1e0::/48, or a MagicDNS name. */
     fun isTailnet(url: String): Boolean {
-        val addr = literal(host(url) ?: return false) ?: return false
+        val h = host(url) ?: return false
+        if (isMagicDns(h)) return true
+        val addr = literal(h) ?: return false
         val b = addr.address
         return when (addr) {
             // 100.64.0.0/10: first octet 100, second octet's top two bits are 01 (64..127).

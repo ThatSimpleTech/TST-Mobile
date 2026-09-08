@@ -18,7 +18,8 @@ class ClientMessage internal constructor(val body: JsonObject) {
     /** Compact JSON text, the exact frame that goes on the socket. */
     fun encode(): String = Protocol.json.encodeToString(JsonObject.serializer(), body)
 
-    override fun toString(): String = encode()
+    /** Never the wire text: a hello carries the token, and generated strings end up in logs. */
+    override fun toString(): String = "ClientMessage(type=${(body["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: "?"})"
 }
 
 /** The messages the phone sends. Only what Home mode needs; the union has 73 members. */

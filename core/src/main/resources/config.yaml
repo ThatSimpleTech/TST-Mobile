@@ -176,7 +176,7 @@ presets:
   home:
     brain:
       slug: home-brain
-      base_url: http://home.tailnet.example:4000/v1
+      base_url: https://llm.your-tailnet.ts.net/v1
       input_price: 0.0
       output_price: 0.0
       cache_read_price: 0.0
@@ -184,7 +184,7 @@ presets:
       max_output_tokens: 4096
     worker:
       slug: home-brain
-      base_url: http://home.tailnet.example:4000/v1
+      base_url: https://llm.your-tailnet.ts.net/v1
       input_price: 0.0
       output_price: 0.0
       cache_read_price: 0.0
@@ -192,7 +192,7 @@ presets:
       max_output_tokens: 4096
     validator:
       slug: home-brain
-      base_url: http://home.tailnet.example:4000/v1
+      base_url: https://llm.your-tailnet.ts.net/v1
       input_price: 0.0
       output_price: 0.0
       cache_read_price: 0.0
