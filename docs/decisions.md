@@ -199,3 +199,11 @@ Reality-check §8 finding 5: `NoConnectionOutsideEndpointsTest` only walked `cor
 
 The same scan refuses silent radios and skipped composers: `WifiManager.setWifiEnabled`, `BluetoothAdapter.enable`, `BluetoothAdapter.disable`, `SmsManager`, `Intent.ACTION_CALL`, `EXTRA_SKIP_UI`. Q2/Q3 stayed dial-only / SMS draft, so those strings must not appear in `app/`. Alarms and timers set `EXTRA_SKIP_UI=false` in core `PhoneIntents`, not in `app/`.
 
+## TM-026 (2026-09-08) Voice is on-device SpeechRecognizer, not a Google cloud session
+
+M4 v1 is talk-to-EZER with the phone's on-device speech pack and on-device TTS. [SpeechRecognizer.createOnDeviceSpeechRecognizer] plus `EXTRA_PREFER_OFFLINE`. The cloud constructor `SpeechRecognizer.createSpeechRecognizer` is refused by the app source scan. If the pack is missing, Talk fails with a plain line; it does not fall back to a network recognizer.
+
+Audio does not go to EZER or to a cloud STT. The Pixel's on-device engine is still Google's binary; that is the honest trade until sherpa-onnx (plan §8) replaces it behind the same `OnDeviceListen` / `OnDeviceSpeak` callbacks.
+
+Keyguard: a spoken goal does not auto-run while locked (plan §8 answers-only). Long-press power still opens MainActivity and starts listening. Speak-results is a toggle (default on); the spend chip is stripped before TTS (`VoiceCopy.spokenOutcome`). `AssistRecognitionService` stays an error stub so we do not nest recognizers.
+

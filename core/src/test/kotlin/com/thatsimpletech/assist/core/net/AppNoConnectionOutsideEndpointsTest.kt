@@ -61,6 +61,34 @@ class AppNoConnectionOutsideEndpointsTest {
     }
 
     @Test
+    fun appNeverCreatesTheCloudSpeechRecognizer() {
+        val root = appSources()
+        val hits = root.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .flatMap { f ->
+                f.readLines().mapIndexedNotNull { i, line ->
+                    if ("createSpeechRecognizer" in line && "createOnDeviceSpeechRecognizer" !in line) {
+                        "${f.relativeTo(root)}:${i + 1}: $line"
+                    } else {
+                        null
+                    }
+                }
+            }
+            .toList()
+        assertTrue(hits.isEmpty(), "cloud SpeechRecognizer.createSpeechRecognizer is refused; use createOnDeviceSpeechRecognizer:\n" + hits.joinToString("\n"))
+    }
+
+    @Test
+    fun onDeviceListenIsTheSpeechPath() {
+        val root = appSources()
+        val listen = File(root, "com/thatsimpletech/assist/voice/OnDeviceListen.kt")
+        assertTrue(listen.isFile, "OnDeviceListen.kt must exist under $root")
+        val text = listen.readText()
+        assertTrue("createOnDeviceSpeechRecognizer" in text)
+        assertTrue("EXTRA_PREFER_OFFLINE" in text)
+    }
+
+    @Test
     fun theScanSeesTheAppSources() {
         val root = appSources()
         assertTrue(root.walkTopDown().any { it.name == "MainActivity.kt" }, "scan must see MainActivity under $root")

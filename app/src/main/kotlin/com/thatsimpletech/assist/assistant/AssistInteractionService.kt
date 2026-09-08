@@ -17,8 +17,10 @@ class AssistSessionService : VoiceInteractionSessionService() {
 }
 
 /**
- * The assist gesture opens the app's entry screen. Screen context (onHandleAssist) is the M6
- * "what's on my screen" path and is not consumed yet. Keyguard rule: answers only (plan §8).
+ * The assist gesture opens the app's entry screen and MainActivity starts on-device
+ * listening. Screen context (onHandleAssist) is the M6 "what's on my screen" path and
+ * is not consumed yet. Keyguard rule: answers only (plan §8) — MainActivity will not
+ * auto-run a spoken goal while the phone is locked.
  */
 class AssistSession(private val service: AssistSessionService) : VoiceInteractionSession(service) {
     override fun onShow(args: Bundle?, showFlags: Int) {
@@ -32,8 +34,10 @@ class AssistSession(private val service: AssistSessionService) : VoiceInteractio
 }
 
 /**
- * Required by the assistant role's metadata. On-device speech (sherpa-onnx) lands in M4;
- * until then every request reports an error rather than pretending to listen.
+ * Required by the assistant role's metadata. Listening is [com.thatsimpletech.assist.voice.OnDeviceListen]
+ * in the activity, not this service — implementing RecognitionService by wrapping another
+ * SpeechRecognizer nests engines. Until sherpa-onnx owns this slot, every request reports
+ * an error rather than pretending to listen.
  */
 class AssistRecognitionService : RecognitionService() {
     override fun onStartListening(recognizerIntent: Intent?, listener: Callback?) {

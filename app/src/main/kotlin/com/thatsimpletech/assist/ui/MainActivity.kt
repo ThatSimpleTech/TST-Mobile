@@ -2,6 +2,7 @@ package com.thatsimpletech.assist.ui
 
 import android.Manifest
 import android.app.Activity
+import android.app.KeyguardManager
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -36,11 +37,12 @@ import com.thatsimpletech.assist.kill.GlobalKillSwitch
 import com.thatsimpletech.assist.notif.AssistNotificationListener
 import com.thatsimpletech.assist.task.LastRun
 import com.thatsimpletech.assist.task.TaskForegroundService
+import com.thatsimpletech.assist.voice.OnDeviceListen
 import java.io.File
 
 /**
  * Settings surface: grants, EZER home (default), OpenRouter/LAN fallbacks, Auto, spend cap,
- * hint codec, family mode, a goal box, kill switch, policy self-check, offline suite.
+ * hint codec, family mode, a goal box, talk, kill switch, policy self-check, offline suite.
  * Framework views only; a nicer surface is later work.
  */
 class MainActivity : Activity() {
@@ -60,15 +62,22 @@ class MainActivity : Activity() {
     private lateinit var writeSettingsBtn: Button
     private lateinit var dndBtn: Button
     private lateinit var autoBtn: Button
+    private lateinit var speakBtn: Button
     private lateinit var numericBtn: Button
     private lateinit var lettersBtn: Button
     private lateinit var setupHint: TextView
+    private lateinit var goal: EditText
+    private lateinit var talkBtn: Button
     private var mode: ProviderSettings.Mode = ProviderSettings.Mode.EZER
     private var codec: String = HintCodec.Numeric.word
+    private var listen: OnDeviceListen? = null
+    private var pendingAssistListen = false
+    private var runWhenHeard = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         title = "EZER ${BuildConfig.VERSION_NAME}"
+        pendingAssistListen = intent.getBooleanExtra(EXTRA_FROM_ASSIST, false)
         val dp = resources.displayMetrics.density
         val col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -108,8 +117,19 @@ class MainActivity : Activity() {
         }
         col.addView(setupHint)
 
+        col.addView(heading("Ask EZER", dp))
+        goal = EditText(this).apply { hint = "What should I do? (e.g. reply to Maria confirming 7pm)" }
+        col.addView(goal)
+        talkBtn = button("Talk") { onTalk() }
+        col.addView(talkBtn)
+        col.addView(button("Run task") { startGoal() })
+        col.addView(button("Stop everything (kill switch)") { GlobalKillSwitch.kill(); render() })
+        col.addView(button("Re-arm after stop") { GlobalKillSwitch.reset(); render() })
+
         autoBtn = button(autoLabel()) { RunPrefs.setAuto(this, !RunPrefs.auto(this)); render() }
         col.addView(autoBtn)
+        speakBtn = button(speakLabel()) { RunPrefs.setSpeak(this, !RunPrefs.speak(this)); render() }
+        col.addView(speakBtn)
 
         col.addView(heading("Brain", dp))
         ezerBtn = button("EZER home") { setMode(ProviderSettings.Mode.EZER) }
@@ -166,28 +186,6 @@ class MainActivity : Activity() {
         setMode(saved.mode)
         setCodec(saved.codec().word)
 
-        val goal = EditText(this).apply { hint = "What should I do? (e.g. reply to Maria confirming 7pm)" }
-        col.addView(goal)
-        col.addView(button("Run task") {
-            val g = goal.text.toString().trim()
-            if (g.isEmpty()) {
-                status.append("\nno goal")
-                return@button
-            }
-            if (AssistAccessibilityService.instance == null) {
-                status.append("\nScreen driver is off — intents (call, torch, alarm) still run; tap/type need Accessibility.")
-            }
-            try {
-                startForegroundService(Intent(this, TaskForegroundService::class.java).putExtra(TaskForegroundService.EXTRA_GOAL, g))
-                LastRun.save(this, "started: $g")
-                status.append("\nstarted: $g — watch the EZER notification")
-            } catch (e: Exception) {
-                LastRun.save(this, "could not start: ${e.message}")
-                status.append("\ncould not start: ${e.message}")
-            }
-        })
-        col.addView(button("Stop everything (kill switch)") { GlobalKillSwitch.kill(); render() })
-        col.addView(button("Re-arm after stop") { GlobalKillSwitch.reset(); render() })
         col.addView(button("Policy self-check") {
             val results = Conformance.run(PolicyEnforcer(Graph.pack), Conformance.loadDefault())
             val failed = results.filter { !it.passed }
@@ -214,13 +212,108 @@ class MainActivity : Activity() {
             Manifest.permission.READ_CONTACTS,
             Manifest.permission.WRITE_CONTACTS,
         ).filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
-        if (needed.isNotEmpty()) requestPermissions(needed.toTypedArray(), 1)
+        if (needed.isNotEmpty()) requestPermissions(needed.toTypedArray(), REQ_START)
     }
 
     override fun onResume() {
         super.onResume()
         render()
+        if (pendingAssistListen) {
+            pendingAssistListen = false
+            onTalk(runWhenHeard = true)
+        }
     }
+
+    override fun onPause() {
+        listen?.stop()
+        if (::talkBtn.isInitialized) talkBtn.text = "Talk"
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        listen?.stop()
+        super.onDestroy()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_MIC && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            startListen(runWhenHeard)
+        }
+    }
+
+    private fun onTalk(runWhenHeard: Boolean = false) {
+        this.runWhenHeard = runWhenHeard
+        if (listen?.listening == true) {
+            listen?.stop()
+            talkBtn.text = "Talk"
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
+            return
+        }
+        startListen(runWhenHeard)
+    }
+
+    private fun startListen(runWhenHeard: Boolean) {
+        this.runWhenHeard = runWhenHeard
+        val session = listen ?: OnDeviceListen(
+            context = this,
+            onListening = { talkBtn.text = "Listening… tap to stop" },
+            onPartial = { said ->
+                goal.setText(said)
+                goal.setSelection(said.length)
+            },
+            onFinal = { said ->
+                talkBtn.text = "Talk"
+                goal.setText(said)
+                goal.setSelection(said.length)
+                val locked = locked()
+                val shouldRun = runWhenHeard || RunPrefs.auto(this)
+                when {
+                    locked && shouldRun -> {
+                        status.append("\nheard: $said — unlock the phone to run")
+                        if (RunPrefs.speak(this)) Graph.voice.speak("unlock the phone first")
+                    }
+                    shouldRun -> startGoal()
+                    else -> status.append("\nheard: $said — tap Run task")
+                }
+            },
+            onFail = { msg ->
+                talkBtn.text = "Talk"
+                status.append("\n$msg")
+            },
+        ).also { listen = it }
+        session.start()
+    }
+
+    private fun startGoal() {
+        val g = goal.text.toString().trim()
+        if (g.isEmpty()) {
+            status.append("\nno goal")
+            return
+        }
+        if (locked()) {
+            status.append("\nunlock the phone to run")
+            if (RunPrefs.speak(this)) Graph.voice.speak("unlock the phone first")
+            return
+        }
+        if (AssistAccessibilityService.instance == null) {
+            status.append("\nScreen driver is off — intents (call, torch, alarm) still run; tap/type need Accessibility.")
+        }
+        try {
+            startForegroundService(Intent(this, TaskForegroundService::class.java).putExtra(TaskForegroundService.EXTRA_GOAL, g))
+            LastRun.save(this, "started: $g")
+            status.append("\nstarted: $g — watch the EZER notification")
+        } catch (e: Exception) {
+            LastRun.save(this, "could not start: ${e.message}")
+            status.append("\ncould not start: ${e.message}")
+        }
+    }
+
+    private fun locked(): Boolean =
+        getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
 
     private fun setMode(next: ProviderSettings.Mode) {
         mode = next
@@ -308,6 +401,8 @@ class MainActivity : Activity() {
         val overlayOk = Settings.canDrawOverlays(this)
         val writeOk = Settings.System.canWrite(this)
         val dndOk = getSystemService(NotificationManager::class.java)?.isNotificationPolicyAccessGranted == true
+        val micOk = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val speechOk = OnDeviceListen.available(this)
         a11yBtn.visibility = if (a11y) View.GONE else View.VISIBLE
         assistantBtn.visibility = if (assistant) View.GONE else View.VISIBLE
         notifBtn.visibility = if (notif) View.GONE else View.VISIBLE
@@ -317,6 +412,7 @@ class MainActivity : Activity() {
         val missing = !a11y || !overlayOk
         setupHint.visibility = if (missing) View.VISIBLE else View.GONE
         autoBtn.text = autoLabel()
+        speakBtn.text = speakLabel()
         title = "EZER ${BuildConfig.VERSION_NAME}"
 
         status.text = buildString {
@@ -327,7 +423,15 @@ class MainActivity : Activity() {
             append(if (overlayOk) "✓ can open other apps\n" else "✗ draw-over-apps off (EZER cannot leave this screen)\n")
             append(if (writeOk) "✓ write settings\n" else "✗ write settings off (brightness)\n")
             append(if (dndOk) "✓ Do Not Disturb access\n" else "✗ Do Not Disturb access off\n")
+            append(
+                when {
+                    !micOk -> "✗ microphone off (Talk needs it)\n"
+                    speechOk -> "✓ on-device speech\n"
+                    else -> "✗ on-device speech pack missing\n"
+                },
+            )
             append(if (RunPrefs.auto(this@MainActivity)) "● Auto: Send and start-task cards are skipped\n" else "○ Auto off: EZER will ask before Send\n")
+            append(if (RunPrefs.speak(this@MainActivity)) "● Speak results on\n" else "○ Speak results off\n")
             append("${settings.label} · ${brain.slug} · $host\n")
             append(
                 when {
@@ -371,6 +475,10 @@ class MainActivity : Activity() {
         if (RunPrefs.auto(this)) "Auto mode: ON (skip approve cards)"
         else "Auto mode: OFF (ask before Send)"
 
+    private fun speakLabel(): String =
+        if (RunPrefs.speak(this)) "Speak results: ON"
+        else "Speak results: OFF"
+
     private fun heading(label: String, dp: Float): TextView = TextView(this).apply {
         text = label
         setTextSize(16f)
@@ -384,6 +492,8 @@ class MainActivity : Activity() {
 
     companion object {
         const val EXTRA_FROM_ASSIST = "from_assist"
+        private const val REQ_START = 1
+        private const val REQ_MIC = 2
 
         fun isDefaultAssistant(context: Context): Boolean =
             Settings.Secure.getString(context.contentResolver, "assistant")?.startsWith(context.packageName) == true

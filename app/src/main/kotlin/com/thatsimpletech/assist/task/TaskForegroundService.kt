@@ -6,6 +6,7 @@ import android.content.pm.ServiceInfo
 import android.os.IBinder
 import com.thatsimpletech.assist.Graph
 import com.thatsimpletech.assist.approval.ApprovalNotifier
+import com.thatsimpletech.assist.config.RunPrefs
 import com.thatsimpletech.assist.kill.GlobalKillSwitch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -54,6 +55,7 @@ class TaskForegroundService : Service() {
             }
             LastRun.save(this@TaskForegroundService, outcome)
             Graph.notifier.finishTask(goal, outcome)
+            if (RunPrefs.speak(this@TaskForegroundService)) Graph.voice.speak(outcome)
             stopForeground(STOP_FOREGROUND_DETACH)
             stopSelf()
         }

@@ -24,6 +24,7 @@ import com.thatsimpletech.assist.core.steering.DefaultInstructions
 import com.thatsimpletech.assist.core.steering.InstructionStack
 import com.thatsimpletech.assist.core.steering.RulesBoundary
 import com.thatsimpletech.assist.secrets.KeystoreSecretStore
+import com.thatsimpletech.assist.voice.OnDeviceSpeak
 import java.io.File
 import java.util.UUID
 
@@ -61,6 +62,7 @@ object Graph {
 
     val secrets: SecretStore by lazy { KeystoreSecretStore(app) }
     val notifier: ApprovalNotifier by lazy { ApprovalNotifier(app) }
+    val voice: OnDeviceSpeak by lazy { OnDeviceSpeak(app) }
     val approvals: AndroidApprovalSurface by lazy {
         AndroidApprovalSurface(
             notifier = notifier,

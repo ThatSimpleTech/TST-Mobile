@@ -22,7 +22,7 @@ TST Desk (`ThatSimpleTech/TST-Desk`) is a private repository. This check could n
 | Agent cannot rewrite rules | Boundary refuses rules files | `RulesBoundary` refuses `ASSISTANT.md`, `CHARTER.md`, `policy.yaml`, `AGENTS.md`, `profiles/`, `rules/`, plus `..` and symlinks. Nothing in the task loop offers a write tool, so the boundary is currently unused by the runner. | **held as a gate**; no write tool exists to attack |
 | Screen / notification text is data | Delimited block, grammar only | `ObservationFormatter` quotes labels as one escaped token; injection suite proves a forged `OBS>>` / `GOAL:` inside a message does not become structure. Parser: first non-empty line, closed verb set, unknown hint refused. | **held** (254-test suite, including `InjectionSuiteTest`) |
 | Approval on the driven phone | Overlay + notification; timeout = deny | `AndroidApprovalSurface` + `OverlayCard` (`TYPE_ACCESSIBILITY_OVERLAY`) + notification actions. Timeout is `withTimeoutOrNull` → false. Not run on a phone. | **code, untested on a phone** |
-| Voice stays on device | On-device STT/TTS | `AssistRecognitionService` returns `ERROR_SERVER` and does not listen. Honest stub. | **not built** (M4) |
+| Voice stays on device | On-device STT/TTS | `OnDeviceListen` uses `createOnDeviceSpeechRecognizer` only; cloud constructor is source-scanned out. TTS is the phone's engine. `AssistRecognitionService` stays an error stub. sherpa-onnx not built. | **code, M4 v1** |
 | Conversations plaintext, owner-only | App-private storage | No conversation store exists yet. Audit rows are app-private SQLite. | **not built** (memory / chat) |
 
 ---
@@ -41,7 +41,7 @@ The plan's diagram has three planners (Home tstd / Cloud key / Device) and a pho
 | Home as vLLM / OpenAI-compat on the box | Wired | Same `CloudPlanner`. Default home host is `llm.ezer-server.ts.net` / `ezer-chat` (TM-016). |
 | Home as tstd daemon (classifier, cards, audit upstream) | Client model only | `TstdClient` speaks the fixture protocol. **Not** attached to `TaskController`. Approvals do not round-trip to tstd. |
 | Device brain (LiteRT-LM) | Preset only | `Planners` returns a plain sentence: not built |
-| Voice (sherpa-onnx) | No | Recognition service errors |
+| Voice (sherpa-onnx) | Partial | On-device SpeechRecognizer + TTS (TM-026). Keyword spotting / Whisper / Kokoro not built |
 | Memory / embeddings | No | |
 | CHARTER.md schema | Filename reserved | Boundary refuses the name; no schema validator |
 | Instruction inspector UI | Partial | Settings is grants + provider (OpenRouter / LAN / custom URL + model) + goal, not a stack/token inspector |
