@@ -37,7 +37,7 @@ The plan's diagram has three planners (Home tstd / Cloud key / Device) and a pho
 | Policy pack enforcer | Yes | `policy/policy.yaml` + Kotlin walk + `policy/cases.yaml` |
 | Meter | Yes | Cache-honesty: unreported cache is billed as uncached, not as a discount |
 | Audit (SQLite) | Yes | Desktop v1+v2 SQL copied; v3 adds `actions`, `approvals`, `device_id`, `planner_mode`, BEFORE UPDATE/DELETE triggers |
-| Cloud-key planner | Yes | `CloudPlanner` + `ProviderClient` through `Endpoints` |
+| Cloud-key planner | Yes | `CloudPlanner` + `ProviderClient` through `Endpoints`. 429/502/503/504 retry once (TM-031). |
 | Home as vLLM / OpenAI-compat on the box | Wired | Same `CloudPlanner`. Default home host is `llm.ezer-server.ts.net` / `ezer-chat` (TM-016). |
 | Home as tstd daemon (classifier, cards, audit upstream) | Client model only | `TstdClient` speaks the fixture protocol. **Not** attached to `TaskController`. Approvals do not round-trip to tstd. |
 | Device brain (LiteRT-LM) | Preset only | `Planners` returns a plain sentence: not built |

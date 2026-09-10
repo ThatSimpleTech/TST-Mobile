@@ -233,6 +233,13 @@ Corner swipe / long-press power shows a compact **Listening…** panel over the 
 
 If microphone permission is off, the session still opens MainActivity so Android can ask. On-device speech missing, a miss, or Cancel dismisses the sheet. Keyguard: hear, do not run. Tile / notification / launcher shortcut still open the app (TM-029). Hey EZER is still later.
 
+## TM-031 (2026-09-10) Retry OpenRouter 429/5xx; do not dump the JSON
+
+A 429/502/503/504 used to become `Last run: stopped:` plus the provider body (Venice/Novita/DeepSeek rate-limit JSON). Those codes now retry once after 2s, same as a timeout. If it still fails, Last run is one sentence: rate-limited → wait or tap **EZER** for the home box. Auth errors still fail immediately.
+
+This does not change the model slug. DeepSeek flash on OpenRouter will 429 under load no matter how many times we retry; the home box (`ezer-chat`) is the way off that queue.
+
+
 
 
 
